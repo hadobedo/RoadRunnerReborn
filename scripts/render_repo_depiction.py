@@ -7,28 +7,16 @@ import json
 import re
 from pathlib import Path
 
-ABOUT_MARKDOWN = """Hey! I’ve updated RoadRunner by the Henriksson Brothers for modern rootless/roothide jailbreaks.
+ABOUT_MARKDOWN = """**RoadRunner Reborn** makes your Now Playing app (and optionally other selected apps) stay alive through sbreload and resprings, keeping your music and other apps uninterrupted!
 
-**RoadRunner Reborn** makes your Now Playing app (and optionally other selected apps) stay alive through sbreload and resprings, keeping your music and other apps uninterrupted!
-
-Must-have tweak for me back in the rootful days :)
-
-Tested on iOS 15 - 17 rootless, **should** work on rootHide and iOS 18 and newer (fingers crossed)
-
-Submitted an application to host this on the Havoc repo, will update post/leave comment if/when approved!
-
-In the meantime..."""
+Tested on iOS 15 - 17 rootless, **should** work on rootHide and iOS 18 and newer (fingers crossed)"""
 
 AT_A_GLANCE = [
-    "Supports iOS 15-17 rootless & roothide (arm64 & arm64e)",
-    "iPhone 13 Pro Max, iOS 15.4.1 (rootless)",
-    "iPhone 14 Pro Max, iOS 16.4 (rootless)",
-    "iPhone 13 Pro, iOS 17.1.1 (rootless)",
+    "- Initial release!",
+    "- Removed dependancy on 'AppList'",
 ]
 
 LINKS = [
-    ("Repo", "https://hadobedo.github.io/repo"),
-    (".deb Releases", "https://github.com/hadobedo/RoadRunnerReborn/releases"),
     ("Source on GitHub", "https://github.com/hadobedo/RoadRunnerReborn"),
     ("Support on Ko-fi", "https://ko-fi.com/nicksworks"),
     ("X / Twitter", "https://twitter.com/Nicks_Works"),
