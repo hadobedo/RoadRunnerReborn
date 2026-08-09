@@ -7,7 +7,8 @@ BUNDLE_NAME = RoadRunnerRebornPrefs
 RoadRunnerRebornPrefs_FILES = RRRRootListController.m RRRApplicationListController.m RRRLinksListController.m RRRCreditCells.m ../RRRPreferences.m
 RoadRunnerRebornPrefs_INSTALL_PATH = /Library/PreferenceBundles
 RoadRunnerRebornPrefs_FRAMEWORKS = UIKit
-RoadRunnerRebornPrefs_PRIVATE_FRAMEWORKS = Preferences
+# Preferences is a private framework and is not shipped in the clean RootHide
+# Theos checkout. Its symbols are resolved by the preference host at runtime.
 RoadRunnerRebornPrefs_CFLAGS = -fobjc-arc -I$(THEOS)/vendor/include -I$(THEOS_PROJECT_DIR)/vendor/include -Wno-deprecated-declarations
 # AltList is a runtime dependency, not vendored into this package. The project
 # keeps only its public superclass header and a tiny linker stub so clean CI
