@@ -15,6 +15,8 @@ AT_A_GLANCE = [
     "- Initial release!",
     "- Removed dependancy on 'AppList'",
 ]
+COMPATIBILITY = "iOS 15+"
+FORMATS = "Rootless · RootHide"
 
 LINKS = [
     ("Source on GitHub", "https://github.com/hadobedo/RoadRunnerReborn"),
@@ -62,9 +64,14 @@ def markdown_list(entries: list[str]) -> str:
     return "\n".join(f"- {entry}" for entry in entries)
 
 
+def clean_list_entries(entries: list[str]) -> list[str]:
+    return [entry[2:] if entry.startswith("- ") else entry for entry in entries]
+
+
 def html_list(entries: list[str]) -> str:
     return "\n".join(
-        f"          <li>{markdown_inline(entry)}</li>" for entry in entries
+        f"          <li>{markdown_inline(entry)}</li>"
+        for entry in clean_list_entries(entries)
     )
 
 
@@ -78,6 +85,7 @@ def sileo_button(title: str, action: str) -> dict[str, str]:
 
 
 def render_sileo(version: str, package: str, visits: str, downloads: str) -> dict:
+    glance_entries = clean_list_entries(AT_A_GLANCE)
     info_views: list[dict] = [
         {
             "class": "DepictionMarkdownView",
@@ -90,8 +98,9 @@ def render_sileo(version: str, package: str, visits: str, downloads: str) -> dic
         {
             "class": "DepictionTableTextView",
             "title": "Compatibility",
-            "text": AT_A_GLANCE[0],
+            "text": COMPATIBILITY,
         },
+        {"class": "DepictionTableTextView", "title": "Formats", "text": FORMATS},
         {"class": "DepictionTableTextView", "title": "Package ID", "text": package},
         {"class": "DepictionSeparatorView"},
         {"class": "DepictionHeaderView", "title": "Links"},
@@ -103,7 +112,7 @@ def render_sileo(version: str, package: str, visits: str, downloads: str) -> dic
             {"class": "DepictionHeaderView", "title": "At a glance"},
             {
                 "class": "DepictionMarkdownView",
-                "markdown": markdown_list(AT_A_GLANCE),
+                "markdown": markdown_list(glance_entries),
                 "useSpacing": True,
             },
             {"class": "DepictionSeparatorView"},
@@ -170,7 +179,7 @@ def render_html(name: str, version: str, package: str, base_url: str, visits: st
 </head>
 <body>
   <main>
-    <header><h1>{html.escape(name)}</h1><div class="version">Version {html.escape(version)}</div><p class="sub">Nick's Works · {html.escape(AT_A_GLANCE[0])}</p></header>
+    <header><h1>{html.escape(name)}</h1><div class="version">Version {html.escape(version)}</div><p class="sub">Nick's Works · {html.escape(COMPATIBILITY)}</p></header>
     <section class="card">
       <h2>About</h2>
 {about}
