@@ -253,12 +253,16 @@ jobs:
             sha256sum "$package" >> assets/SHA256SUMS
           done
           tag="v$VERSION"
+          repo="$GITHUB_REPOSITORY"
           notes="RoadRunner Reborn $VERSION. Includes rootless and RootHide packages."
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" assets/*.deb assets/SHA256SUMS --clobber
-            gh release edit "$tag" --latest --title "RoadRunner Reborn $VERSION" --notes "$notes"
+          if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
+            gh release upload "$tag" assets/*.deb assets/SHA256SUMS \
+              --repo "$repo" --clobber
+            gh release edit "$tag" --repo "$repo" --latest \
+              --title "RoadRunner Reborn $VERSION" --notes "$notes"
           else
             gh release create "$tag" assets/*.deb assets/SHA256SUMS \
+              --repo "$repo" \
               --target "$GITHUB_SHA" \
               --latest \
               --title "RoadRunner Reborn $VERSION" \
