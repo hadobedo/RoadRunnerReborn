@@ -61,6 +61,7 @@ write_index() {
         cd "$directory"
         dpkg-scanpackages -m debs /dev/null > Packages
         gzip -9c Packages > Packages.gz
+        xz -9c Packages > Packages.xz
         {
             printf 'Origin: Nicks Works\n'
             printf 'Label: Nicks Works\n'
@@ -72,11 +73,11 @@ write_index() {
             printf 'MD5Sum:\n'
             while read -r hash file; do
                 printf ' %s %s %s\n' "$hash" "$(stat -c '%s' "$file" 2>/dev/null || stat -f '%z' "$file")" "$file"
-            done < <(md5sum Packages Packages.gz)
+            done < <(md5sum Packages Packages.gz Packages.xz)
             printf 'SHA256:\n'
             while read -r hash file; do
                 printf ' %s %s %s\n' "$hash" "$(stat -c '%s' "$file" 2>/dev/null || stat -f '%z' "$file")" "$file"
-            done < <(sha256sum Packages Packages.gz)
+            done < <(sha256sum Packages Packages.gz Packages.xz)
         } > Release
     )
 }
