@@ -203,16 +203,20 @@ jobs:
           else
             base="https://raw.githubusercontent.com/hadobedo/repo/$FEED_COMMIT"
           fi
-          for path in Packages rootless/Packages roothide/Packages; do
-            curl --fail --silent --show-error --retry 5 --retry-delay 5 \
-              "$base/$path" > "/tmp/$(basename "$path")"
-          done
-          grep -F 'Package: com.nicksworks.roadrunnerreborn' /tmp/Packages >/dev/null
-          grep -F "Version: $RELEASE_VERSION" /tmp/Packages >/dev/null
-          grep -F 'Package: com.nicksworks.roadrunnerreborn' /tmp/rootless/Packages >/dev/null
-          grep -F 'Architecture: iphoneos-arm64' /tmp/rootless/Packages >/dev/null
-          grep -F 'Package: com.nicksworks.roadrunnerreborn' /tmp/roothide/Packages >/dev/null
-          grep -F 'Architecture: iphoneos-arm64e' /tmp/roothide/Packages >/dev/null
+          feed_check=$(mktemp -d)
+          trap 'rm -rf "$feed_check"' EXIT
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 \
+            "$base/Packages" > "$feed_check/Packages"
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 \
+            "$base/rootless/Packages" > "$feed_check/rootless-Packages"
+          curl --fail --silent --show-error --retry 5 --retry-delay 5 \
+            "$base/roothide/Packages" > "$feed_check/roothide-Packages"
+          grep -F 'Package: com.nicksworks.roadrunnerreborn' "$feed_check/Packages" >/dev/null
+          grep -F "Version: $RELEASE_VERSION" "$feed_check/Packages" >/dev/null
+          grep -F 'Package: com.nicksworks.roadrunnerreborn' "$feed_check/rootless-Packages" >/dev/null
+          grep -F 'Architecture: iphoneos-arm64' "$feed_check/rootless-Packages" >/dev/null
+          grep -F 'Package: com.nicksworks.roadrunnerreborn' "$feed_check/roothide-Packages" >/dev/null
+          grep -F 'Architecture: iphoneos-arm64e' "$feed_check/roothide-Packages" >/dev/null
 
   github-release:
     if: needs.prepare.outputs.channel == 'stable'
