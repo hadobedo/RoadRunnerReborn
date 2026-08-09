@@ -29,7 +29,11 @@ AT_A_GLANCE = [
 LINKS = [
     ("Repo", "https://hadobedo.github.io/repo"),
     (".deb Releases", "https://github.com/hadobedo/RoadRunnerReborn/releases"),
-    ("Source", "https://github.com/hadobedo/RoadRunnerReborn"),
+    ("Source on GitHub", "https://github.com/hadobedo/RoadRunnerReborn"),
+    ("Support on Ko-fi", "https://ko-fi.com/nicksworks"),
+    ("X / Twitter", "https://twitter.com/Nicks_Works"),
+    ("Instagram", "https://instagram.com/Nicks_Works"),
+    ("YouTube", "https://www.youtube.com/@NicksWorks"),
 ]
 
 
