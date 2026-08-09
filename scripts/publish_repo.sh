@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${FEED_DIR:?FEED_DIR is required}"
+: "${RELEASE_VERSION:?RELEASE_VERSION is required}"
+: "${ROOTLESS_DEB:?ROOTLESS_DEB is required}"
+: "${ROOTHIDE_DEB:?ROOTHIDE_DEB is required}"
+
+source_root=${SOURCE_ROOT:-$(pwd)}
+package=com.nicksworks.roadrunnerreborn
+repo_root="$FEED_DIR"
+if [ "$(basename "$FEED_DIR")" = dev ]; then
+    repo_root="$(dirname "$FEED_DIR")"
+fi
+mkdir -p "$repo_root/assets" "$repo_root/depictions" \
+    "$FEED_DIR/assets" "$FEED_DIR/depictions" \
+    "$FEED_DIR/debs" "$FEED_DIR/rootless/debs" "$FEED_DIR/roothide/debs"
+
+cp "$ROOTLESS_DEB" "$FEED_DIR/debs/"
+cp "$ROOTHIDE_DEB" "$FEED_DIR/debs/"
+cp "$ROOTLESS_DEB" "$FEED_DIR/rootless/debs/"
+cp "$ROOTHIDE_DEB" "$FEED_DIR/roothide/debs/"
+
+render_depiction() {
+    local output_dir=$1
+    mkdir -p "$output_dir"
+    python3 "$source_root/scripts/render_repo_depiction.py" \
+    --output-dir "$output_dir" \
+    --package "$package" \
+    --name 'RoadRunner Reborn' \
+    --version "$RELEASE_VERSION" \
+    --summary 'Keep Now Playing and selected applications alive through sbreload and SpringBoard resprings.' \
+    --compatibility 'iOS 15–17 · Rootless and RootHide' \
+    --source-url 'https://github.com/hadobedo/RoadRunnerReborn' \
+    --page-id 'hadobedo.github.io/repo/depictions/com.nicksworks.roadrunnerreborn' \
+    --github-repository 'hadobedo/RoadRunnerReborn'
+}
+render_depiction "$repo_root/depictions"
+if [ "$FEED_DIR" != "$repo_root" ]; then
+    cp "$repo_root/depictions/$package.json" "$FEED_DIR/depictions/"
+    cp "$repo_root/depictions/$package.html" "$FEED_DIR/depictions/"
+fi
+
+# Keep the existing dotto++ depiction counters current when this feed is
+# published from either product's workflow.
+for dotto_dir in "$repo_root" "$FEED_DIR"; do
+    if [ -f "$dotto_dir/depictions/com.nicksworks.dottoplusplus.json" ] && [ -f "$dotto_dir/depictions/com.nicksworks.dottoplusplus.html" ]; then
+        python3 "$source_root/scripts/add_depiction_counters.py" \
+            --json "$dotto_dir/depictions/com.nicksworks.dottoplusplus.json" \
+            --html "$dotto_dir/depictions/com.nicksworks.dottoplusplus.html" \
+            --page-id 'hadobedo.github.io/repo/depictions/com.nicksworks.dottoplusplus' \
+            --github-repository 'hadobedo/dotto-'
+    fi
+done
+
+write_index() {
+    local directory=$1
+    local architectures=$2
+    local codename=$3
+    (
+        cd "$directory"
+        dpkg-scanpackages -m debs /dev/null > Packages
+        gzip -9c Packages > Packages.gz
+        {
+            printf 'Origin: Nicks Works\n'
+            printf 'Label: Nicks Works\n'
+            printf 'Suite: stable\n'
+            printf 'Codename: %s\n' "$codename"
+            printf 'Architectures: %s\n' "$architectures"
+            printf 'Components: main\n'
+            printf 'Description: Nicks Works jailbreak tweaks\n'
+            printf 'MD5Sum:\n'
+            while read -r hash file; do
+                printf ' %s %s %s\n' "$hash" "$(stat -c '%s' "$file" 2>/dev/null || stat -f '%z' "$file")" "$file"
+            done < <(md5sum Packages Packages.gz)
+            printf 'SHA256:\n'
+            while read -r hash file; do
+                printf ' %s %s %s\n' "$hash" "$(stat -c '%s' "$file" 2>/dev/null || stat -f '%z' "$file")" "$file"
+            done < <(sha256sum Packages Packages.gz)
+        } > Release
+    )
+}
+
+write_index "$FEED_DIR" 'iphoneos-arm64 iphoneos-arm64e' stable
+write_index "$FEED_DIR/rootless" iphoneos-arm64 rootless
+write_index "$FEED_DIR/roothide" iphoneos-arm64e roothide
+
+sha256sum "$FEED_DIR/rootless/debs/$(basename "$ROOTLESS_DEB")" > "$FEED_DIR/rootless/SHA256SUMS"
+sha256sum "$FEED_DIR/roothide/debs/$(basename "$ROOTHIDE_DEB")" > "$FEED_DIR/roothide/SHA256SUMS"
+printf '%s\n' "$RELEASE_VERSION" > "$FEED_DIR/LATEST"

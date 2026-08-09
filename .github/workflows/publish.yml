@@ -1,0 +1,255 @@
+name: Publish
+
+on:
+  push:
+    branches:
+      - development
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ROOTHIDE_THEOS_COMMIT: 88506b2c22e9e07dd4ed055f23c9e398a117a2c7
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      channel: ${{ steps.version.outputs.channel }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release channel and version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          count=$(awk '$1 == "Version:" { count++ } END { print count + 0 }' control)
+          version=$(awk '$1 == "Version:" && NF == 2 { print $2 }' control)
+          test "$count" -eq 1
+          test -n "$version"
+
+          case "$GITHUB_REF" in
+            refs/heads/development)
+              channel=dev
+              tag=""
+              ;;
+            refs/tags/v*)
+              channel=stable
+              tag="$GITHUB_REF_NAME"
+              test "${tag#v}" = "$version" || {
+                echo "tag $tag does not match control version $version" >&2
+                exit 1
+              }
+              ;;
+            *)
+              echo 'Publish must run from development or a v* tag.' >&2
+              exit 1
+              ;;
+          esac
+
+          printf 'channel=%s\n' "$channel" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+          printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prepare
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scheme: rootless
+            archs: "arm64 arm64e"
+            expected_arch: iphoneos-arm64
+          - scheme: roothide
+            archs: arm64e
+            expected_arch: iphoneos-arm64e
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install RootHide Theos
+        shell: bash
+        env:
+          THEOS: ${{ runner.temp }}/roothide-theos
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/roothide/theos.git "$THEOS"
+          git -C "$THEOS" checkout --detach "$ROOTHIDE_THEOS_COMMIT"
+          git -C "$THEOS" submodule update --init --recursive
+          printf 'THEOS=%s\n' "$THEOS" >> "$GITHUB_ENV"
+          test "$(git -C "$THEOS" rev-parse HEAD)" = "$ROOTHIDE_THEOS_COMMIT"
+
+      - name: Build ${{ matrix.scheme }} package
+        run: |
+          make clean package FINALPACKAGE=1 \
+            THEOS_PACKAGE_SCHEME=${{ matrix.scheme }} \
+            ARCHS="${{ matrix.archs }}" \
+            PACKAGE_VERSION="${{ needs.prepare.outputs.version }}"
+
+      - name: Verify package
+        env:
+          EXPECTED_ARCH: ${{ matrix.expected_arch }}
+          EXPECTED_VERSION: ${{ needs.prepare.outputs.version }}
+          PACKAGE_SCHEME: ${{ matrix.scheme }}
+        run: scripts/verify_package.sh
+
+      - name: Record checksum
+        run: shasum -a 256 packages/*.deb | tee packages/SHA256SUMS
+
+      - name: Upload release package
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.scheme }}
+          path: |
+            packages/*.deb
+            packages/SHA256SUMS
+          if-no-files-found: error
+
+  publish-feed:
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    env:
+      REPO_DEPLOY_KEY: ${{ secrets.REPO_DEPLOY_KEY }}
+      RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+      CHANNEL: ${{ needs.prepare.outputs.channel }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          path: source
+
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: false
+
+      - name: Configure repository deploy key
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$REPO_DEPLOY_KEY" || {
+            echo 'REPO_DEPLOY_KEY is not configured.' >&2
+            exit 1
+          }
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$REPO_DEPLOY_KEY" > "$HOME/.ssh/repo-deploy"
+          chmod 600 "$HOME/.ssh/repo-deploy"
+          ssh-keyscan -H github.com >> "$HOME/.ssh/known_hosts"
+          cat > "$HOME/.ssh/config" <<'EOF'
+          Host github.com
+            IdentityFile ~/.ssh/repo-deploy
+            IdentitiesOnly yes
+          EOF
+
+      - name: Check out package repository
+        run: git clone git@github.com:hadobedo/repo.git feed
+
+      - name: Install package-index tools
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y dpkg-dev
+
+      - name: Publish feed
+        shell: bash
+        env:
+          SOURCE_ROOT: ${{ github.workspace }}/source
+        run: |
+          set -euo pipefail
+          rootless=$(find release-rootless -maxdepth 1 -type f -name '*.deb' -print -quit)
+          roothide=$(find release-roothide -maxdepth 1 -type f -name '*.deb' -print -quit)
+          test -n "$rootless" -a -n "$roothide"
+          if [ "$CHANNEL" = dev ]; then
+            feed_dir="$GITHUB_WORKSPACE/feed/dev"
+          else
+            feed_dir="$GITHUB_WORKSPACE/feed"
+          fi
+          FEED_DIR="$feed_dir" \
+          ROOTLESS_DEB="$GITHUB_WORKSPACE/$rootless" \
+          ROOTHIDE_DEB="$GITHUB_WORKSPACE/$roothide" \
+          SOURCE_ROOT="$GITHUB_WORKSPACE/source" \
+          RELEASE_VERSION="$RELEASE_VERSION" \
+          "$GITHUB_WORKSPACE/source/scripts/publish_repo.sh"
+
+      - name: Commit and publish feed
+        id: feed
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd feed
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .
+          git diff --cached --quiet || git commit -m "Publish RoadRunner Reborn $RELEASE_VERSION ($CHANNEL)"
+          git push origin main
+          printf 'commit=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify published feed
+        shell: bash
+        env:
+          FEED_COMMIT: ${{ steps.feed.outputs.commit }}
+        run: |
+          set -euo pipefail
+          if [ "$CHANNEL" = dev ]; then
+            base="https://raw.githubusercontent.com/hadobedo/repo/$FEED_COMMIT/dev"
+          else
+            base="https://raw.githubusercontent.com/hadobedo/repo/$FEED_COMMIT"
+          fi
+          for path in Packages rootless/Packages roothide/Packages; do
+            curl --fail --silent --show-error --retry 5 --retry-delay 5 \
+              "$base/$path" > "/tmp/$(basename "$path")"
+          done
+          grep -F 'Package: com.nicksworks.roadrunnerreborn' /tmp/Packages >/dev/null
+          grep -F "Version: $RELEASE_VERSION" /tmp/Packages >/dev/null
+          grep -F 'Package: com.nicksworks.roadrunnerreborn' /tmp/rootless/Packages >/dev/null
+          grep -F 'Architecture: iphoneos-arm64' /tmp/rootless/Packages >/dev/null
+          grep -F 'Package: com.nicksworks.roadrunnerreborn' /tmp/roothide/Packages >/dev/null
+          grep -F 'Architecture: iphoneos-arm64e' /tmp/roothide/Packages >/dev/null
+
+  github-release:
+    if: needs.prepare.outputs.channel == 'stable'
+    needs: [prepare, publish-feed]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: false
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets
+          for scheme in rootless roothide; do
+            package=$(find "release-$scheme" -maxdepth 1 -type f -name '*.deb' -print -quit)
+            test -n "$package"
+            cp "$package" assets/
+            sha256sum "$package" >> assets/SHA256SUMS
+          done
+          tag="v$VERSION"
+          notes="RoadRunner Reborn $VERSION. Includes rootless and RootHide packages."
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" assets/*.deb assets/SHA256SUMS --clobber
+            gh release edit "$tag" --latest --title "RoadRunner Reborn $VERSION" --notes "$notes"
+          else
+            gh release create "$tag" assets/*.deb assets/SHA256SUMS \
+              --target "$GITHUB_SHA" \
+              --latest \
+              --title "RoadRunner Reborn $VERSION" \
+              --notes "$notes"
+          fi

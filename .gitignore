@@ -1,0 +1,26 @@
+# Theos build output and generated release artifacts
+.theos/
+packages/
+*.deb
+*.dSYM/
+*.log
+__pycache__/
+
+# Local agent/tooling state
+.pi-subagents/
+.benchmarks/
+
+# Keep only the public root README; other root-level Markdown is local-only
+/*.md
+!/README.md
+
+# Tests are maintained locally, not shipped in the public source repository
+tests/
+
+# Local checkout of the original RoadRunner reference
+RoadRunner/
+
+# macOS/editor noise
+.DS_Store
+.idea/
+.vscode/

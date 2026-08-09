@@ -1,0 +1,23 @@
+#!/bin/sh
+# RoadRunner Reborn removal hook.
+# Request Sileo's userspace reboot so injected daemons unload cleanly.
+
+finish_userspace_reboot() {
+    [ -n "$SILEO" ] || return 0
+
+    read -r fd version <<EOF
+$SILEO
+EOF
+    [ -n "$fd" ] || return 0
+    [ "${version:-0}" -ge 1 ] || return 0
+
+    printf 'finish:usreboot\n' >&"$fd"
+}
+
+case "$1" in
+    remove|purge|upgrade|failed-upgrade)
+        finish_userspace_reboot
+        ;;
+esac
+
+exit 0

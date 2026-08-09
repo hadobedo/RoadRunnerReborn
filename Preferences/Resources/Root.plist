@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+ <key>items</key>
+ <array>
+  <dict>
+   <key>cell</key><string>PSSwitchCell</string>
+   <key>default</key><true/>
+   <key>get</key><string>readPreferenceValue:</string>
+   <key>id</key><string>enabled</string>
+   <key>key</key><string>enabled</string>
+   <key>label</key><string>Enabled</string>
+   <key>set</key><string>setPreferenceValue:specifier:</string>
+  </dict>
+
+  <dict>
+   <key>cell</key><string>PSGroupCell</string>
+   <key>label</key><string>Mode</string>
+   <key>footerText</key><string>Preserve Now Playing keeps the current audio app alive. Preserve Other Apps additionally keeps applications according to the list below.</string>
+  </dict>
+  <dict>
+   <key>cell</key><string>PSSwitchCell</string>
+   <key>default</key><true/>
+   <key>get</key><string>readPreferenceValue:</string>
+   <key>id</key><string>preserveNowPlaying</string>
+   <key>key</key><string>preserveNowPlaying</string>
+   <key>label</key><string>Preserve Now Playing</string>
+   <key>set</key><string>setPreferenceValue:specifier:</string>
+  </dict>
+  <dict>
+   <key>cell</key><string>PSSwitchCell</string>
+   <key>default</key><false/>
+   <key>get</key><string>readPreferenceValue:</string>
+   <key>id</key><string>preserveOtherApps</string>
+   <key>key</key><string>preserveOtherApps</string>
+   <key>label</key><string>Preserve Other Apps</string>
+   <key>set</key><string>setPreferenceValue:specifier:</string>
+  </dict>
+
+  <dict>
+   <key>cell</key><string>PSGroupCell</string>
+   <key>label</key><string>Other Apps</string>
+   <key>footerText</key><string>Whitelist keeps only listed apps alive. Blacklist keeps every app alive except those listed. Preserved apps should be restarted after installing or updating tweaks that inject into them. Preserving package managers may cause unexpected behavior when they are opened again.</string>
+  </dict>
+  <dict>
+   <key>cell</key><string>PSLinkListCell</string>
+   <key>detail</key><string>PSListItemsController</string>
+   <key>default</key><true/>
+   <key>get</key><string>readPreferenceValue:</string>
+   <key>id</key><string>isWhitelist</string>
+   <key>key</key><string>isWhitelist</string>
+   <key>label</key><string>Mode</string>
+   <key>set</key><string>setPreferenceValue:specifier:</string>
+   <key>validTitles</key><array><string>Whitelist</string><string>Blacklist</string></array>
+   <key>validValues</key><array><true/><false/></array>
+   <key>enabled</key><false/>
+  </dict>
+  <dict>
+   <key>cell</key><string>PSLinkCell</string>
+   <key>detail</key><string>RRRApplicationListController</string>
+   <key>id</key><string>listedApps</string>
+   <key>includeIdentifiersInSearch</key><true/>
+   <key>defaultApplicationSwitchValue</key><false/>
+   <key>label</key><string>Preserve Applications</string>
+   <key>sections</key>
+   <array>
+    <dict><key>sectionType</key><string>System</string></dict>
+    <dict><key>sectionType</key><string>User</string></dict>
+   </array>
+   <key>useSearchBar</key><true/>
+  </dict>
+
+  <dict>
+   <key>cell</key><string>PSGroupCell</string>
+   <key>label</key><string>Credits &amp; Source</string>
+  </dict>
+  <dict>
+   <key>cell</key><string>PSLinkCell</string>
+   <key>cellClass</key><string>RRRProfileLinkCell</string>
+   <key>detail</key><string>RRRLinksListController</string>
+   <key>id</key><string>nicksWorksMenu</string>
+   <key>key</key><string>nicksWorksMenu</string>
+   <key>label</key><string>Nick's Works</string>
+   <key>subtitle</key><string>💡 Have a tweak request or idea? Tap here!</string>
+  </dict>
+  <dict>
+   <key>cell</key><string>PSLinkCell</string>
+   <key>cellClass</key><string>RRROriginalLinkCell</string>
+   <key>id</key><string>originalRoadRunner</string>
+   <key>key</key><string>originalRoadRunner</string>
+   <key>label</key><string>Original RoadRunner</string>
+   <key>subtitle</key><string>by Henrique Narita (Nosskirneh)</string>
+  </dict>
+ </array>
+ <key>title</key><string>RoadRunner Reborn</string>
+</dict>
+</plist>
