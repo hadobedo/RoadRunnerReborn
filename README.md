@@ -26,7 +26,11 @@ RoadRunner Reborn should(?) work on iOS 18 and newer, let me know!
 
 ## Screenshots
 
-![RoadRunner Reborn preferences](assets/Screenshot.png)
+<p align="center">
+  <a href="assets/Screenshot.png">
+    <img src="assets/Screenshot.png" height="180" alt="RoadRunner Reborn preferences">
+  </a>
+</p>
 
 ## Install
 
