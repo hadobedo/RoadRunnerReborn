@@ -11,6 +11,12 @@ on:
 permissions:
   contents: read
 
+# The dev and stable publishers both update hadobedo/repo/main. Serialize them
+# so one feed clone cannot race another clone's push.
+concurrency:
+  group: roadrunner-repo-feed
+  cancel-in-progress: false
+
 env:
   ROOTHIDE_THEOS_COMMIT: 88506b2c22e9e07dd4ed055f23c9e398a117a2c7
 
