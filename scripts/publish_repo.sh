@@ -29,9 +29,6 @@ render_depiction() {
     --package "$package" \
     --name 'RoadRunner Reborn' \
     --version "$RELEASE_VERSION" \
-    --summary 'Keep Now Playing and selected applications alive through sbreload and SpringBoard resprings.' \
-    --compatibility 'iOS 15–17 · Rootless and RootHide' \
-    --source-url 'https://github.com/hadobedo/RoadRunnerReborn' \
     --page-id 'hadobedo.github.io/repo/depictions/com.nicksworks.roadrunnerreborn' \
     --github-repository 'hadobedo/RoadRunnerReborn'
 }
