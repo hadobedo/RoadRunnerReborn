@@ -20,6 +20,7 @@ whitelist/blacklist alive through `sbreload` and SpringBoard resprings.
 **Tested on:**
 
 - iPhone 13 Pro Max, iOS 15.4.1 (rootless)
+- iPhone 14 Pro Max, iOS 16.4 (rootless)
 - iPhone 13 Pro, iOS 17.1.1 (rootless)
 
 RoadRunner Reborn should(?) work on iOS 18 and newer, let me know!
@@ -28,13 +29,14 @@ RoadRunner Reborn should(?) work on iOS 18 and newer, let me know!
 
 <p align="center">
   <a href="assets/Screenshot.png">
-    <img src="assets/Screenshot.png" height="180" alt="RoadRunner Reborn preferences">
+    <img src="assets/Screenshot.png" height="480" alt="RoadRunner Reborn preferences">
   </a>
 </p>
 
 ## Install
 
-For now, [you can add my repo (hadobedo.github.io/repo)](sileo://hadobedo.github.io/repo), or install the latest package matching your jailbreak from below:
+Releasing on Havoc repo soon^tm
+For now, [you can add my repo at (hadobedo.github.io/repo)](sileo://hadobedo.github.io/repo), or install the latest package matching your jailbreak from below:
 
 - [Releases](https://github.com/hadobedo/RoadRunnerReborn/releases)
 
