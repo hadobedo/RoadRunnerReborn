@@ -6,6 +6,18 @@ on:
       - development
     tags:
       - 'v*'
+    paths:
+      - '**/*.h'
+      - '**/*.m'
+      - '**/*.xm'
+      - '**/*.plist'
+      - '**/Makefile'
+      - 'control'
+      - 'layout/**'
+      - 'vendor/**'
+      - 'scripts/publish_repo.sh'
+      - 'scripts/verify_package.sh'
+      - '.github/workflows/publish.yml'
   workflow_dispatch:
 
 permissions:

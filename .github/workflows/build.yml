@@ -5,7 +5,29 @@ on:
     branches:
       - development
       - main
+    paths:
+      - '**/*.h'
+      - '**/*.m'
+      - '**/*.xm'
+      - '**/*.plist'
+      - '**/Makefile'
+      - 'control'
+      - 'layout/**'
+      - 'vendor/**'
+      - 'scripts/verify_package.sh'
+      - '.github/workflows/build.yml'
   pull_request:
+    paths:
+      - '**/*.h'
+      - '**/*.m'
+      - '**/*.xm'
+      - '**/*.plist'
+      - '**/Makefile'
+      - 'control'
+      - 'layout/**'
+      - 'vendor/**'
+      - 'scripts/verify_package.sh'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
