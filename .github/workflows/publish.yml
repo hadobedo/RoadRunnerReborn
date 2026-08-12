@@ -252,6 +252,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
       - name: Download packages
         uses: actions/download-artifact@v4
         with:
@@ -275,16 +278,23 @@ jobs:
           tag="v$VERSION"
           repo="$GITHUB_REPOSITORY"
           notes="RoadRunner Reborn $VERSION. Includes rootless and RootHide packages."
+          notes_file=".github/RELEASE_NOTES.md"
+          notes_args=()
+          if [ -f "$notes_file" ]; then
+            notes_args=(--notes-file "$notes_file")
+          else
+            notes_args=(--notes "$notes")
+          fi
           if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
             gh release upload "$tag" assets/*.deb assets/SHA256SUMS \
               --repo "$repo" --clobber
             gh release edit "$tag" --repo "$repo" --latest \
-              --title "RoadRunner Reborn $VERSION" --notes "$notes"
+              --title "RoadRunner Reborn $VERSION" "${notes_args[@]}"
           else
             gh release create "$tag" assets/*.deb assets/SHA256SUMS \
               --repo "$repo" \
               --target "$GITHUB_SHA" \
               --latest \
               --title "RoadRunner Reborn $VERSION" \
-              --notes "$notes"
+              "${notes_args[@]}"
           fi
