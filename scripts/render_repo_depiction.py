@@ -11,7 +11,7 @@ ABOUT_MARKDOWN = """**RoadRunner Reborn** makes your Now Playing app (and option
 
 Tested on iOS 15 - 17 rootless, **should** work on rootHide and iOS 18 and newer (fingers crossed)"""
 
-AT_A_GLANCE = [
+CHANGELOG = [
     "- Apps that are meant to survive a respring are captured more reliably",
     "- System apps like Spotlight are no longer kept alive needlessly due to over-capture from blacklist, so they should not get stuck after a respring.",
     "- Blacklist mode only considers regular apps shown in the app list",
@@ -88,36 +88,36 @@ def sileo_button(title: str, action: str) -> dict[str, str]:
 
 
 def render_sileo(version: str, package: str, visits: str, downloads: str) -> dict:
-    glance_entries = clean_list_entries(AT_A_GLANCE)
-    info_views: list[dict] = [
+    changelog_entries = clean_list_entries(CHANGELOG)
+    views: list[dict] = [
         {
             "class": "DepictionMarkdownView",
             "markdown": ABOUT_MARKDOWN,
             "useSpacing": True,
         },
         {"class": "DepictionSeparatorView"},
-        {"class": "DepictionHeaderView", "title": "Information"},
-        {"class": "DepictionTableTextView", "title": "Version", "text": version},
+        {"class": "DepictionHeaderView", "title": "Changelog"},
         {
-            "class": "DepictionTableTextView",
-            "title": "Compatibility",
-            "text": COMPATIBILITY,
+            "class": "DepictionMarkdownView",
+            "markdown": markdown_list(changelog_entries),
+            "useSpacing": True,
         },
-        {"class": "DepictionTableTextView", "title": "Formats", "text": FORMATS},
-        {"class": "DepictionTableTextView", "title": "Package ID", "text": package},
         {"class": "DepictionSeparatorView"},
         {"class": "DepictionHeaderView", "title": "Links"},
     ]
-    info_views.extend(sileo_button(title, url) for title, url in LINKS)
-    info_views.extend(
+    views.extend(sileo_button(title, url) for title, url in LINKS)
+    views.extend(
         [
             {"class": "DepictionSeparatorView"},
-            {"class": "DepictionHeaderView", "title": "At a glance"},
+            {"class": "DepictionHeaderView", "title": "Information"},
+            {"class": "DepictionTableTextView", "title": "Version", "text": version},
             {
-                "class": "DepictionMarkdownView",
-                "markdown": markdown_list(glance_entries),
-                "useSpacing": True,
+                "class": "DepictionTableTextView",
+                "title": "Compatibility",
+                "text": COMPATIBILITY,
             },
+            {"class": "DepictionTableTextView", "title": "Formats", "text": FORMATS},
+            {"class": "DepictionTableTextView", "title": "Package ID", "text": package},
             {"class": "DepictionSeparatorView"},
             {"class": "DepictionHeaderView", "title": "Usage"},
             {
@@ -135,7 +135,7 @@ def render_sileo(version: str, package: str, visits: str, downloads: str) -> dic
             {
                 "class": "DepictionStackView",
                 "tabname": "Details",
-                "views": info_views,
+                "views": views,
             }
         ],
     }
@@ -147,8 +147,14 @@ def render_html(name: str, version: str, package: str, base_url: str, visits: st
         f"{html.escape(title)} <span>↗</span></a>"
         for title, url in LINKS
     )
-    glance = html_list(AT_A_GLANCE)
+    changelog = html_list(CHANGELOG)
     about = html_paragraphs(ABOUT_MARKDOWN)
+    information = html_list([
+        f"Version: {html.escape(version)}",
+        f"Compatibility: {html.escape(COMPATIBILITY)}",
+        f"Formats: {html.escape(FORMATS)}",
+        f"Package ID: {html.escape(package)}",
+    ])
     source = html.escape(base_url, quote=True)
     return f'''<!doctype html>
 <html lang="en">
@@ -187,8 +193,9 @@ def render_html(name: str, version: str, package: str, base_url: str, visits: st
       <h2>About</h2>
 {about}
     </section>
+    <section class="card"><h2>Changelog</h2><ul>{changelog}</ul></section>
     <section class="card"><h2>Links</h2><div class="links">{links}</div></section>
-    <section class="card"><h2>At a glance</h2><ul>{glance}</ul></section>
+    <section class="card"><h2>Information</h2><ul>{information}</ul></section>
     <section class="card"><h2>Usage</h2><div class="stats"><img src="{visits}" alt="Visits"><img src="{downloads}" alt="GitHub downloads"></div></section>
     <footer>{html.escape(package)} · <a href="{source}/Packages">APT metadata</a></footer>
   </main>
