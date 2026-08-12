@@ -1,6 +1,7 @@
 # Theos build output and generated release artifacts
 .theos/
 packages/
+/release/
 *.deb
 *.dSYM/
 *.log

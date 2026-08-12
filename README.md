@@ -52,11 +52,13 @@ Dependencies:
 | Path | Purpose |
 |---|---|
 | `Tweak.xm` | SpringBoard entry and media eligibility hook |
-| `RRRRunningBoard.xm` | RunningBoard termination boundary |
+| `RRRRunningBoard.xm` | RunningBoard termination boundary (daemon dylib) |
 | `RRRSpringBoard.xm` | Media tracking, survivor restoration, and FrontBoard reattachment |
-| `RRRPreferences.*` | Validated settings and live notification handling |
+| `RRRPreferences.*` | Validated settings, never-preserve policy, and live notification handling |
 | `RRRState.*` | Persistent Now Playing state |
 | `RRRSurvivors.*` | Generation-stamped root and hosted-child records |
+| `RoadRunnerReborn.plist` | Filter: SpringBoard dylib loads only into SpringBoard |
+| `RoadRunnerRebornDaemon.plist` | Filter: daemon dylib loads only into `runningboardd` |
 | `Preferences/` | PreferenceLoader and AltList settings bundle |
 | `layout/` | Package scripts, including Sileo userspace-reboot handling |
 | `vendor/` | Project-owned AltList linker metadata and public header |
@@ -77,7 +79,7 @@ make clean package \
   THEOS_PACKAGE_SCHEME=rootless \
   ARCHS="arm64 arm64e" \
   FINALPACKAGE=1 \
-  PACKAGE_VERSION=1.0.0
+  PACKAGE_VERSION=1.1.0
 ```
 
 ### RootHide
@@ -88,7 +90,7 @@ make clean package \
   THEOS_PACKAGE_SCHEME=roothide \
   ARCHS="arm64e" \
   FINALPACKAGE=1 \
-  PACKAGE_VERSION=1.0.0
+  PACKAGE_VERSION=1.1.0
 ```
 
 ## License and credits

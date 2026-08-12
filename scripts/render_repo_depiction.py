@@ -12,8 +12,11 @@ ABOUT_MARKDOWN = """**RoadRunner Reborn** makes your Now Playing app (and option
 Tested on iOS 15 - 17 rootless, **should** work on rootHide and iOS 18 and newer (fingers crossed)"""
 
 AT_A_GLANCE = [
-    "- Initial release!",
-    "- Removed dependancy on 'AppList'",
+    "- Apps that are meant to survive a respring are captured more reliably",
+    "- System apps like Spotlight are no longer kept alive needlessly due to over-capture from blacklist, so they should not get stuck after a respring.",
+    "- Blacklist mode only considers regular apps shown in the app list",
+    "- Stale Now Playing entries are cleared instead of reused.",
+    "- SpringBoard and runningboardd now use separate, smaller hooks w/ better logging when loading or capture goes wrong.",
 ]
 COMPATIBILITY = "iOS 15+"
 FORMATS = "Rootless · RootHide"

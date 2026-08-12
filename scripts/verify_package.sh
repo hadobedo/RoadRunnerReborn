@@ -56,12 +56,13 @@ else
 fi
 
 dylib=$(find "$tmp/data" -name RoadRunnerReborn.dylib -type f -print -quit)
+daemon_dylib=$(find "$tmp/data" -name RoadRunnerRebornDaemon.dylib -type f -print -quit)
 prefs=$(find "$tmp/data" -name RoadRunnerRebornPrefs -type f -print -quit)
-test -n "$dylib" -a -n "$prefs"
-file "$dylib" "$prefs" | grep -F 'arm64' >/dev/null
-file "$dylib" "$prefs" | grep -F 'arm64e' >/dev/null
+test -n "$dylib" -a -n "$daemon_dylib" -a -n "$prefs"
+file "$dylib" "$daemon_dylib" "$prefs" | grep -F 'arm64' >/dev/null
+file "$dylib" "$daemon_dylib" "$prefs" | grep -F 'arm64e' >/dev/null
 
-strings "$dylib" "$prefs" | grep -E 'RocketBootstrap|AppList\.framework|RBProcessManager.*executeTerminateRequest|RBSXPCMessage|posix_spawn|posix_spawnp|killpg' && {
+strings "$dylib" "$daemon_dylib" "$prefs" | grep -E 'RocketBootstrap|AppList\.framework|RBProcessManager.*executeTerminateRequest|RBSXPCMessage|posix_spawn|posix_spawnp|killpg' && {
     echo 'prohibited runtime reference found' >&2
     exit 1
 } || true
@@ -72,6 +73,23 @@ if [ -z "$otool_bin" ] && [ -n "${THEOS:-}" ] && [ -x "$THEOS/toolchain/linux/ip
 fi
 test -n "$otool_bin" || { echo 'otool is required for Mach-O validation' >&2; exit 1; }
 "$otool_bin" -L "$prefs" | grep -F "$expected_load" >/dev/null
+
+# The runningboardd dylib is Foundation-only: UIKit/SpringBoard code must not
+# load into a critical daemon.
+if "$otool_bin" -L "$daemon_dylib" | grep -E 'UIKit|SpringBoard' >/dev/null; then
+    echo 'daemon dylib must not reference UIKit/SpringBoard' >&2
+    exit 1
+fi
+
+# Narrow filters: the SpringBoard dylib loads only into SpringBoard; the
+# daemon dylib only into runningboardd.
+sb_filter=$(find "$tmp/data" -path '*DynamicLibraries/RoadRunnerReborn.plist' -print -quit)
+daemon_filter=$(find "$tmp/data" -path '*DynamicLibraries/RoadRunnerRebornDaemon.plist' -print -quit)
+test -n "$sb_filter" -a -n "$daemon_filter"
+grep -F 'com.apple.springboard' "$sb_filter" >/dev/null
+! grep -F 'runningboardd' "$sb_filter" >/dev/null
+grep -F 'runningboardd' "$daemon_filter" >/dev/null
+! grep -F 'com.apple.springboard' "$daemon_filter" >/dev/null
 
 postinst="$tmp/control/postinst"
 postrm="$tmp/control/postrm"

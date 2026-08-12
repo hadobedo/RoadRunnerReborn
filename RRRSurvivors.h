@@ -11,7 +11,13 @@ FOUNDATION_EXPORT NSDictionary *RRRMakeSurvivorRecord(int pid, uint64_t startIde
                                                         NSString *bundleID, int hostPID,
                                                         uint64_t hostStartIdentity,
                                                         NSString *rootBundleID, NSString *role);
-FOUNDATION_EXPORT void RRRCaptureSurvivorAsync(NSDictionary *record);
+// Persists the record synchronously on the survivor serial queue. Returns NO
+// when the record is invalid or the write fails; callers must then terminate
+// normally rather than create an untracked survivor.
+FOUNDATION_EXPORT BOOL RRRCaptureSurvivorSync(NSDictionary *record);
+// Replaces the stored records (same generation) after a restore pass, so
+// failed records are not replayed by a later SpringBoard launch.
+FOUNDATION_EXPORT BOOL RRRReplaceSurvivorRecords(NSArray<NSDictionary *> *records, uint64_t generation);
 FOUNDATION_EXPORT NSArray<NSDictionary *> *RRRReadSurvivorRecords(uint64_t * _Nullable generation);
 FOUNDATION_EXPORT void RRRInitializeSurvivorTransport(void);
 

@@ -1,6 +1,11 @@
 #import "RRRLog.h"
+#import "RRRPreferences.h"
+#import <rootless.h>
+
+NSString *const RRRVersionString = @"1.1.0"; // keep in sync with control Version
 
 void RRRLog(NSString *format, ...) {
+    if (!RRRLoggingEnabled()) return;
     va_list args;
     va_start(args, format);
     NSString *message = [[NSString alloc] initWithFormat:format arguments:args];
@@ -11,9 +16,13 @@ void RRRLog(NSString *format, ...) {
     NSString *line = [NSString stringWithFormat:@"%@ [%@] %@\n",
         [NSDate date], [NSProcessInfo processInfo].processName, message];
 
-    // runningboardd's sandbox may block /var/mobile; /tmp is scratch space any
-    // daemon can use, so write both and read whichever survives.
-    NSArray<NSString *> *paths = @[@"/var/mobile/roadrunnerreborn.log", @"/tmp/roadrunnerreborn.log"];
+    // ROOT_PATH_NS resolves /var/mobile under the jailbreak root (e.g.
+    // /var/jb/var/mobile on rootless jailbreaks), never the rootful path;
+    // /tmp remains a fallback where a sandbox blocks the jbroot.
+    NSArray<NSString *> *paths = @[
+        ROOT_PATH_NS(@"/var/mobile/roadrunnerreborn.log"),
+        @"/tmp/roadrunnerreborn.log",
+    ];
     for (NSString *path in paths) {
         NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:path];
         if (!handle) {

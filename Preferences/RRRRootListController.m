@@ -6,7 +6,13 @@ static NSString *const RRREnabledKey = @"enabled";
 static NSString *const RRRNowPlayingKey = @"preserveNowPlaying";
 static NSString *const RRROtherAppsKey = @"preserveOtherApps";
 static NSString *const RRRWhitelistKey = @"isWhitelist";
+static NSString *const RRRLoggingKey = @"loggingEnabled";
 static NSString *const RRRListKey = @"listedApps";
+
+// The app-list row describes the effect of the list for the selected mode:
+// whitelist rows are preserved, blacklist rows are killed on respring.
+static NSString *const RRRWhitelistAppsTitle = @"Preserve Applications";
+static NSString *const RRRBlacklistAppsTitle = @"Kill Applications";
 
 @implementation RRRRootListController
 
@@ -19,8 +25,18 @@ static NSString *const RRRListKey = @"listedApps";
             else if ([key isEqualToString:@"originalRoadRunner"]) [specifier setProperty:[self brandIconNamed:@"icon_github.png"] forKey:PSIconImageKey];
         }
         [self updateModeAvailability:NO];
+        [self updateModeLabels];
     }
     return _specifiers;
+}
+
+// Swaps the app-list row title with the selected mode: "Preserve Applications"
+// in whitelist mode, "Kill Applications" in blacklist mode. The mode
+// explanations stay visible in the group footer regardless of the selection.
+- (void)updateModeLabels {
+    RRRPreferencesSnapshot *settings = RRRPreferencesLoad();
+    PSSpecifier *apps = [self specifierForID:RRRListKey];
+    if (apps) [apps setName:settings.whitelist ? RRRWhitelistAppsTitle : RRRBlacklistAppsTitle];
 }
 
 - (UIImage *)symbolImageNamed:(NSString *)name {
@@ -68,6 +84,7 @@ static NSString *const RRRListKey = @"listedApps";
     if ([key isEqualToString:RRRNowPlayingKey]) return @(settings.preserveNowPlaying);
     if ([key isEqualToString:RRROtherAppsKey]) return @(settings.preserveOtherApps);
     if ([key isEqualToString:RRRWhitelistKey]) return @(settings.whitelist);
+    if ([key isEqualToString:RRRLoggingKey]) return @(settings.loggingEnabled);
     return [specifier propertyForKey:@"default"];
 }
 
@@ -78,12 +95,17 @@ static NSString *const RRRListKey = @"listedApps";
     BOOL nowPlaying = settings.preserveNowPlaying;
     BOOL otherApps = settings.preserveOtherApps;
     BOOL whitelist = settings.whitelist;
+    BOOL loggingEnabled = settings.loggingEnabled;
     if ([key isEqualToString:RRREnabledKey] && [value respondsToSelector:@selector(boolValue)]) enabled = [value boolValue];
     else if ([key isEqualToString:RRRNowPlayingKey] && [value respondsToSelector:@selector(boolValue)]) nowPlaying = [value boolValue];
     else if ([key isEqualToString:RRROtherAppsKey] && [value respondsToSelector:@selector(boolValue)]) otherApps = [value boolValue];
     else if ([key isEqualToString:RRRWhitelistKey] && [value respondsToSelector:@selector(boolValue)]) whitelist = [value boolValue];
+    else if ([key isEqualToString:RRRLoggingKey] && [value respondsToSelector:@selector(boolValue)]) loggingEnabled = [value boolValue];
     else return;
-    if (RRRPreferencesWrite(enabled, nowPlaying, otherApps, whitelist, settings.listedApps.allObjects)) [self updateModeAvailability:YES];
+    if (RRRPreferencesWrite(enabled, nowPlaying, otherApps, whitelist, loggingEnabled, settings.listedApps.allObjects)) {
+        [self updateModeLabels];
+        [self updateModeAvailability:YES];
+    }
 }
 
 - (void)updateModeAvailability:(BOOL)reload {

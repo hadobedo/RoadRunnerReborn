@@ -1,8 +1,8 @@
 Package: com.nicksworks.roadrunnerreborn
 Name: RoadRunner Reborn
-Version: 1.0.0
+Version: 1.1.0
 Architecture: iphoneos-arm64
-Description: RoadRunner Reborn preserves Now Playing media and selected applications through SpringBoard resprings on modern iOS jailbreaks.
+Description: RoadRunner Reborn preserves Now Playing media and selected applications through SpringBoard resprings on modern iOS jailbreaks. A userspace reboot is required after install, update, enable, disable, or removal; Safe Mode alone does not unload the daemon-side hook.
 Maintainer: Nick's Works <hadobedo@gmail.com>
 Author: Nick's Works (Hadobedo)
 Homepage: https://github.com/hadobedo/RoadRunnerReborn

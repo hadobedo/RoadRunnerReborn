@@ -1,12 +1,40 @@
 #import "RRRSurvivors.h"
 #import "RRRIdentity.h"
 #import <notify.h>
+#import <rootless.h>
 #import <unistd.h>
 
 NSString *const RRRSurvivorsFilePath = @"/tmp/roadrunnerreborn-survivors.plist";
 NSString *const RRRSpringBoardReadyNotification = @"com.nicksworks.roadrunnerreborn.springboard-ready";
 NSString *const RRRSurvivorsReadyNotification = @"com.nicksworks.roadrunnerreborn.survivors-ready";
 NSString *const RRRSurvivorsConsumedNotification = @"com.nicksworks.roadrunnerreborn.survivors-consumed";
+
+// The record file must be writable from whichever sandbox the daemon runs in.
+// Writers persist to every candidate that succeeds; readers select the payload
+// with the highest generation so a stale copy can never shadow a newer one;
+// consumption removes every candidate. Order is irrelevant to readers.
+static NSArray<NSString *> *RRRSurvivorPaths(void) {
+    return @[
+        @"/tmp/roadrunnerreborn-survivors.plist",
+        ROOT_PATH_NS(@"/var/mobile/roadrunnerreborn-survivors.plist"),
+        @"/var/mobile/Library/Preferences/com.nicksworks.roadrunnerreborn.survivors.plist",
+    ];
+}
+
+static NSDictionary *RRRReadBestPayload(void) {
+    NSDictionary *best = nil;
+    uint64_t bestGeneration = 0;
+    for (NSString *path in RRRSurvivorPaths()) {
+        NSDictionary *payload = [NSDictionary dictionaryWithContentsOfFile:path];
+        if (![payload isKindOfClass:NSDictionary.class]) continue;
+        uint64_t generation = [payload[@"generation"] unsignedLongLongValue];
+        if (generation > bestGeneration) {
+            bestGeneration = generation;
+            best = payload;
+        }
+    }
+    return best;
+}
 
 static dispatch_queue_t RRRSurvivorQueue(void) {
     static dispatch_queue_t queue;
@@ -36,22 +64,28 @@ NSDictionary *RRRMakeSurvivorRecord(int pid, uint64_t startIdentity, NSString *b
               @"rootBundleID": rootBundleID, @"role": role ?: @"root" };
 }
 
-static void RRRWriteLocked(NSArray *records, uint64_t generation) {
+static BOOL RRRWriteLocked(NSArray *records, uint64_t generation) {
     NSDictionary *payload = @{ @"generation": @(generation), @"records": records ?: @[] };
     NSData *data = [NSPropertyListSerialization dataWithPropertyList:payload format:NSPropertyListXMLFormat_v1_0 options:0 error:NULL];
-    if (!data) return;
-    NSString *tmp = [RRRSurvivorsFilePath stringByAppendingString:@".tmp"];
-    if ([data writeToFile:tmp atomically:YES]) rename(tmp.UTF8String, RRRSurvivorsFilePath.UTF8String);
+    if (!data) return NO;
+    BOOL wroteAny = NO;
+    for (NSString *path in RRRSurvivorPaths()) {
+        NSString *tmp = [path stringByAppendingString:@".tmp"];
+        if ([data writeToFile:tmp atomically:YES] && rename(tmp.UTF8String, path.UTF8String) == 0) {
+            wroteAny = YES;
+        }
+    }
+    return wroteAny;
 }
 
-void RRRCaptureSurvivorAsync(NSDictionary *record) {
-    if (![record isKindOfClass:NSDictionary.class] || record.count == 0) return;
-    dispatch_async(RRRSurvivorQueue(), ^{
+BOOL RRRCaptureSurvivorSync(NSDictionary *record) {
+    if (![record isKindOfClass:NSDictionary.class] || record.count == 0) return NO;
+    __block BOOL captured = NO;
+    dispatch_sync(RRRSurvivorQueue(), ^{
         if (RRRGeneration == 0) {
             RRRGeneration = (uint64_t)([[NSDate date] timeIntervalSince1970] * 1000000.0) ^ (uint64_t)getpid();
-            RRRWriteLocked(@[], RRRGeneration);
         }
-        NSDictionary *payload = [NSDictionary dictionaryWithContentsOfFile:RRRSurvivorsFilePath];
+        NSDictionary *payload = RRRReadBestPayload();
         NSArray *old = [payload[@"records"] isKindOfClass:NSArray.class] ? payload[@"records"] : @[];
         NSMutableArray *records = [old mutableCopy];
         BOOL duplicate = NO;
@@ -61,8 +95,17 @@ void RRRCaptureSurvivorAsync(NSDictionary *record) {
                 [item[@"bundleID"] isEqual:record[@"bundleID"]]) { duplicate = YES; break; }
         }
         if (!duplicate) [records addObject:record];
-        RRRWriteLocked(records, RRRGeneration);
+        captured = RRRWriteLocked(records, RRRGeneration);
     });
+    return captured;
+}
+
+BOOL RRRReplaceSurvivorRecords(NSArray<NSDictionary *> *records, uint64_t generation) {
+    __block BOOL replaced = NO;
+    dispatch_sync(RRRSurvivorQueue(), ^{
+        replaced = RRRWriteLocked(records, generation);
+    });
+    return replaced;
 }
 
 void RRRInitializeSurvivorTransport(void) {
@@ -78,7 +121,7 @@ void RRRInitializeSurvivorTransport(void) {
         });
         notify_register_dispatch(RRRSurvivorsConsumedNotification.UTF8String, &consumedToken, dispatch_get_global_queue(0, 0), ^(int token) {
             dispatch_async(RRRSurvivorQueue(), ^{
-                unlink(RRRSurvivorsFilePath.UTF8String);
+                for (NSString *path in RRRSurvivorPaths()) unlink(path.UTF8String);
                 RRRGeneration = 0;
             });
         });
@@ -86,7 +129,7 @@ void RRRInitializeSurvivorTransport(void) {
 }
 
 NSArray<NSDictionary *> *RRRReadSurvivorRecords(uint64_t *generation) {
-    NSDictionary *payload = [NSDictionary dictionaryWithContentsOfFile:RRRSurvivorsFilePath];
+    NSDictionary *payload = RRRReadBestPayload();
     uint64_t value = [payload[@"generation"] unsignedLongLongValue];
     if (generation) *generation = value;
     NSArray *records = [payload[@"records"] isKindOfClass:NSArray.class] ? payload[@"records"] : @[];

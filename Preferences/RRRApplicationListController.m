@@ -14,6 +14,7 @@
                         settings.preserveNowPlaying,
                         settings.preserveOtherApps,
                         settings.whitelist,
+                        settings.loggingEnabled,
                         _selectedApplications.allObjects);
 }
 

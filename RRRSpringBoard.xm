@@ -140,6 +140,9 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
 @implementation RRRSpringBoardManager {
     NSString *_currentNowPlayingBundleID;
     RRRPreferencesSnapshot *_settings;
+    // Identities (bundle|pid|start) already walked through the SBApplication
+    // launch callbacks, so restoreParty and restoreSurvivors cannot replay them.
+    NSMutableSet *_restoredIdentities;
 }
 
 
@@ -164,6 +167,9 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
     RRRPreferencesSnapshot *settings = RRRPreferencesLoad();
     BOOL wasEnabled = _settings ? (_settings.enabled && _settings.preserveNowPlaying) : YES;
     _settings = settings;
+    // Keep the blacklist universe fresh: capture the currently visible apps
+    // whenever other-app preservation is active.
+    if (settings.preserveOtherApps) RRRPreferencesUpdateAppUniverse();
     BOOL isEnabled = settings.enabled && settings.preserveNowPlaying;
     if (!isEnabled) {
         [self clearNowPlayingState];
@@ -180,15 +186,27 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
     if (token == -1) notify_register_check("com.nicksworks.roadrunnerreborn.party", &token);
     if (token >= 0) {
         notify_set_state(token, 0);
+    }
+    static int startToken = -1;
+    if (startToken == -1) notify_register_check("com.nicksworks.roadrunnerreborn.party-start", &startToken);
+    if (startToken >= 0) {
+        notify_set_state(startToken, 0);
+    }
+    if (token >= 0) {
         notify_post("com.nicksworks.roadrunnerreborn.party-changed");
     }
-    RRRLog(@"[SB] now playing preservation disabled");
+    RRRLog(@"[SB] now playing state cleared");
 }
 
 - (void)start {
     _settings = RRRPreferencesLoad();
+    _restoredIdentities = [NSMutableSet set];
     RRRLog(@"[SB] manager start");
     if (![self preserveNowPlaying]) [self clearNowPlayingState];
+    // Blacklist mode evaluates preservation against the visible application
+    // universe; capture it on launch so existing installs without one do not
+    // silently preserve nothing (or worse, everything).
+    if (_settings.preserveOtherApps) RRRPreferencesUpdateAppUniverse();
     static int settingsToken = -1;
     notify_register_dispatch(RRRPreferencesChangedNotification.UTF8String, &settingsToken,
         dispatch_get_main_queue(), ^(int token) { [self settingsChanged]; });
@@ -295,7 +313,8 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
     // Start identity is an optional PID-reuse guard. Several iOS 15-17
     // FrontBoard process classes expose none of the private candidate keys;
     // requiring it erased a valid media bundle/PID and disabled protection.
-    if (bundleID.length == 0 || pid <= 0) {
+    // Call-critical bundles are never published as the party.
+    if (bundleID.length == 0 || pid <= 0 || RRRNeverPreserveBundleID(bundleID)) {
         bundleID = nil;
         pid = 0;
         startIdentity = 0;
@@ -354,6 +373,13 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
 }
 
 - (void)reattachPartyPID:(int)pid bundleID:(NSString *)bundleID startIdentity:(uint64_t)expectedStart {
+    // Defensive: the party publisher never publishes call-critical bundles,
+    // but state written by an older version could still name one.
+    if (RRRNeverPreserveBundleID(bundleID)) {
+        RRRLog(@"[SB] party %@ excluded from preservation; clearing stale state", bundleID);
+        [self clearNowPlayingState];
+        return;
+    }
     FBProcessManager *processManager = (FBProcessManager *)[(id)RRR_CLS(FBProcessManager) sharedInstance];
     // RoadRunner's proven reattachment boundary is applicationProcessForPID:.
     // processForPID: can return a generic/hosted FBProcess that SpringBoard's
@@ -361,7 +387,10 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
     FBApplicationProcess *process = [processManager applicationProcessForPID:pid];
 
     if (!process) {
-        RRRLog(@"[SB] party %@ pid=%d not found; skipping reattach", bundleID, pid);
+        // Definitive failure: clear the stale party state and let SpringBoard's
+        // own media controller become authoritative.
+        RRRLog(@"[SB] party %@ pid=%d not found; clearing stale state", bundleID, pid);
+        [self clearNowPlayingState];
         return;
     }
 
@@ -370,7 +399,8 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
     NSString *actualBundleID = RRRSafeBundleIdentifier(process);
     if (![actualBundleID isEqualToString:bundleID] ||
         (expectedStart > 0 && actualStart > 0 && actualStart != expectedStart)) {
-        RRRLog(@"[SB] party pid=%d identity mismatch (%@/%llu); skipping", pid, actualBundleID, actualStart);
+        RRRLog(@"[SB] party pid=%d identity mismatch (%@/%llu); clearing stale state", pid, actualBundleID, actualStart);
+        [self clearNowPlayingState];
         return;
     }
 
@@ -398,6 +428,7 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
         return ar == br ? NSOrderedSame : (ar ? NSOrderedAscending : NSOrderedDescending);
     }];
     NSMutableSet *restoredRoots = [NSMutableSet set];
+    NSMutableArray *failed = [NSMutableArray array];
     FBProcessManager *manager = (FBProcessManager *)[(id)RRR_CLS(FBProcessManager) sharedInstance];
     for (NSDictionary *record in ordered) {
         int pid = [record[@"pid"] intValue];
@@ -412,36 +443,79 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
         uint64_t actual = RRRProcessStartIdentity(pid, process);
         NSString *actualBundleID = RRRSafeBundleIdentifier(process);
         if (!process || (expected > 0 && actual > 0 && actual != expected) ||
-            ![actualBundleID isEqualToString:bundle]) continue;
+            ![actualBundleID isEqualToString:bundle]) {
+            [failed addObject:record];
+            continue;
+        }
         NSString *root = record[@"rootBundleID"];
-        if ([record[@"role"] isEqualToString:@"root"]) {
+        if (rootRecord) {
             if ([self reattachAppProcess:process bundleID:root]) {
                 [restoredRoots addObject:root];
                 if ([root isEqualToString:_currentNowPlayingBundleID] && pid == [RRRState nowPlayingPID]) {
                     [self restoreMediaForProcess:(FBApplicationProcess *)process bundleID:root pid:pid];
                 }
+            } else {
+                [failed addObject:record];
             }
         } else if ([restoredRoots containsObject:root]) {
-            // A child is accepted only when its live FrontBoard host still
-            // matches the captured host tuple. Never attach a child to a
-            // reused PID or to an unrelated application.
+            // A hosted child is only re-registered with FrontBoard, never
+            // walked through the SBApplication lifecycle (that path is reserved
+            // for root applications). The live host must still match the
+            // captured host tuple: never attach a child to a reused PID or an
+            // unrelated application.
             int hostPID = [record[@"hostPID"] intValue];
             uint64_t hostStart = [record[@"hostStartIdentity"] unsignedLongLongValue];
             FBProcess *host = RRRSafeHostProcess(process);
             uint64_t actualHostStart = host ? RRRProcessStartIdentity(host.pid, host) : 0;
             if (hostPID <= 0 || !host || host.pid != hostPID ||
-                (hostStart > 0 && actualHostStart > 0 && actualHostStart != hostStart)) continue;
-            [self reattachAppProcess:process bundleID:root];
+                (hostStart > 0 && actualHostStart > 0 && actualHostStart != hostStart)) {
+                [failed addObject:record];
+                continue;
+            }
+            RRRLog(@"[SB] re-registered hosted child %@ pid=%d (root %@)", bundle, pid, root);
+        } else {
+            // A child whose root was not restored cannot be safely attached.
+            [failed addObject:record];
         }
+    }
+    // Drop failed records so a later SpringBoard launch does not replay them.
+    if (failed.count > 0) {
+        NSMutableArray *remaining = [records mutableCopy];
+        [remaining removeObjectsInArray:failed];
+        RRRReplaceSurvivorRecords(remaining, generation);
+        RRRLog(@"[SB] pruned %lu failed survivor records", (unsigned long)failed.count);
     }
     notify_post(RRRSurvivorsConsumedNotification.UTF8String);
     RRRLog(@"[SB] consumed survivor generation %llu", generation);
 }
 
 // Rebuild SpringBoard's view of the surviving app so it shows up in the app
-// switcher and can be foregrounded again.
+// switcher and can be foregrounded again. Idempotent: a successfully restored
+// identity is never walked through the launch callbacks twice. The complete
+// private sequence runs under an exception boundary, and the live
+// FBProcessState is restored when anything fails.
 - (BOOL)reattachAppProcess:(FBProcess *)process bundleID:(NSString *)bundleID {
     if (!process || !bundleID.length) return NO;
+    if (RRRNeverPreserveBundleID(bundleID)) return NO;
+
+    int pid = process.pid;
+    uint64_t start = RRRProcessStartIdentity(pid, process);
+    NSString *identityKey = [NSString stringWithFormat:@"%@|%d|%llu", bundleID, pid, start];
+    if ([_restoredIdentities containsObject:identityKey]) {
+        RRRLog(@"[SB] reattach %@ pid=%d already restored; skipping launch callbacks", bundleID, pid);
+        return YES;
+    }
+
+    // Strict process-class validation: only root FBApplicationProcess objects
+    // may use the SBApplication lifecycle. Generic/hosted processes are
+    // rejected here; SpringBoard's callbacks have SIGABRTed on them before.
+    Class applicationProcessClass = RRR_CLS(FBApplicationProcess);
+    if (applicationProcessClass && ![process isKindOfClass:applicationProcessClass]) {
+        RRRLog(@"[SB] reattach %@ pid=%d rejected: not an FBApplicationProcess (%@)",
+               bundleID, pid, NSStringFromClass([process class]));
+        return NO;
+    }
+
     Class applicationController = RRR_CLS(SBApplicationController);
     Class applicationProcessState = RRR_CLS(SBApplicationProcessState);
     if (!applicationController || !applicationProcessState) return NO;
@@ -456,23 +530,46 @@ static const char *const KSBSpringBoardDidLaunchNotification = "SBSpringBoardDid
 
     FBProcessState *processState = RRRSafeProcessState(process);
     if (!processState) return NO;
-    RRRLog(@"[SB] reattach %@ step=willLaunch", bundleID);
-    [app _processWillLaunch:process];
-    RRRLog(@"[SB] reattach %@ step=didLaunch", bundleID);
-    [app _processDidLaunch:process];
-    RRRLog(@"[SB] reattach %@ step=state", bundleID);
-    processState.visibility = RRRVisibilityBackground;
-    processState.taskState = RRRTaskStateRunning;
+    long long originalVisibility = processState.visibility;
+    long long originalTaskState = processState.taskState;
 
-    SBApplicationProcessState *appProcessState = [(id)applicationProcessState alloc];
-    if (![appProcessState respondsToSelector:@selector(_initWithProcess:stateSnapshot:)]) return NO;
-    RRRLog(@"[SB] reattach %@ step=snapshot", bundleID);
-    appProcessState = [appProcessState _initWithProcess:process stateSnapshot:processState];
-    if (!appProcessState) return NO;
-    RRRLog(@"[SB] reattach %@ step=internalState", bundleID);
-    [app _setInternalProcessState:appProcessState];
+    BOOL success = NO;
+    @try {
+        RRRLog(@"[SB] reattach %@ step=willLaunch", bundleID);
+        [app _processWillLaunch:process];
+        RRRLog(@"[SB] reattach %@ step=didLaunch", bundleID);
+        [app _processDidLaunch:process];
 
-    RRRLog(@"[SB] reattached app %@ pid=%d", bundleID, process.pid);
+        // The snapshot requires a running/background state. Mutate the live
+        // FBProcessState only after the launch callbacks have succeeded.
+        RRRLog(@"[SB] reattach %@ step=state", bundleID);
+        processState.visibility = RRRVisibilityBackground;
+        processState.taskState = RRRTaskStateRunning;
+
+        SBApplicationProcessState *appProcessState = [(id)applicationProcessState alloc];
+        if (![appProcessState respondsToSelector:@selector(_initWithProcess:stateSnapshot:)]) {
+            appProcessState = nil;
+        } else {
+            RRRLog(@"[SB] reattach %@ step=snapshot", bundleID);
+            appProcessState = [appProcessState _initWithProcess:process stateSnapshot:processState];
+        }
+        if (appProcessState) {
+            RRRLog(@"[SB] reattach %@ step=internalState", bundleID);
+            [app _setInternalProcessState:appProcessState];
+            success = YES;
+        }
+    } @catch (NSException *exception) {
+        RRRLog(@"[SB] reattach %@ pid=%d exception: %@", bundleID, pid, exception);
+    }
+    if (!success) {
+        // Never leave the live FrontBoard state mutated by a failed attempt.
+        processState.visibility = originalVisibility;
+        processState.taskState = originalTaskState;
+        return NO;
+    }
+
+    [_restoredIdentities addObject:identityKey];
+    RRRLog(@"[SB] reattached app %@ pid=%d", bundleID, pid);
     return YES;
 }
 
