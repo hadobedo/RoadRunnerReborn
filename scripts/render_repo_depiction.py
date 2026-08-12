@@ -99,7 +99,7 @@ def render_sileo(version: str, package: str, visits: str, downloads: str) -> dic
         {"class": "DepictionHeaderView", "title": "Changelog"},
         {
             "class": "DepictionMarkdownView",
-            "markdown": markdown_list(changelog_entries),
+            "markdown": f"**{version}**\n\n{markdown_list(changelog_entries)}",
             "useSpacing": True,
         },
         {"class": "DepictionSeparatorView"},
@@ -193,7 +193,7 @@ def render_html(name: str, version: str, package: str, base_url: str, visits: st
       <h2>About</h2>
 {about}
     </section>
-    <section class="card"><h2>Changelog</h2><ul>{changelog}</ul></section>
+    <section class="card"><h2>Changelog</h2><p class="version">{html.escape(version)}</p><ul>{changelog}</ul></section>
     <section class="card"><h2>Links</h2><div class="links">{links}</div></section>
     <section class="card"><h2>Information</h2><ul>{information}</ul></section>
     <section class="card"><h2>Usage</h2><div class="stats"><img src="{visits}" alt="Visits"><img src="{downloads}" alt="GitHub downloads"></div></section>
