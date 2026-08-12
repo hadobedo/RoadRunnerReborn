@@ -17,6 +17,8 @@ on:
       - 'vendor/**'
       - 'scripts/publish_repo.sh'
       - 'scripts/verify_package.sh'
+      - 'scripts/render_repo_depiction.py'
+      - 'scripts/add_depiction_counters.py'
       - '.github/workflows/publish.yml'
   workflow_dispatch:
 
