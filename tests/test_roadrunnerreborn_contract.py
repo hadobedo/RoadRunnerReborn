@@ -56,10 +56,13 @@ int main(void) {
 def main():
     project = Path(__file__).resolve().parents[1]
     policy = (project / "RRRPolicy.m").read_text()
+    identity = (project / "RRRIdentity.m").read_text()
     preferences = (project / "RRRPreferences.m").read_text()
     assert "RRRValidBundleID" in policy
     assert "RRRNeverPreserveBundleID" in policy
     assert "RRRPreferencesSnapshot" in policy
+    assert "[object valueForKey:" not in identity
+    assert "respondsToSelector:selector" in identity
     assert "#import \"RRRPolicy.h\"" in (project / "RRRPreferences.h").read_text()
     assert "performSelector:@selector(defaultWorkspace)" in preferences
     assert "respondsToSelector:@selector(allApplications)" in preferences
