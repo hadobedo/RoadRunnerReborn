@@ -30,7 +30,8 @@ render_depiction() {
     --name 'RoadRunner Reborn' \
     --version "$RELEASE_VERSION" \
     --page-id 'hadobedo.github.io/repo/depictions/com.nicksworks.roadrunnerreborn' \
-    --github-repository 'hadobedo/RoadRunnerReborn'
+    --github-repository 'hadobedo/RoadRunnerReborn' \
+    --release-notes "$source_root/.github/RELEASE_NOTES.md"
 }
 render_depiction "$repo_root/depictions"
 if [ "$FEED_DIR" != "$repo_root" ]; then

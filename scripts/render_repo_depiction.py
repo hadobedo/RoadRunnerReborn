@@ -5,19 +5,16 @@ import argparse
 import html
 import json
 import re
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from release_notes import validate
 
 ABOUT_MARKDOWN = """**RoadRunner Reborn** makes your Now Playing app (and optionally other selected apps) stay alive through sbreload and resprings, keeping your music and other apps uninterrupted!
 
 Tested on iOS 15 - 17 rootless, **should** work on rootHide and iOS 18 and newer (fingers crossed)"""
 
-CHANGELOG = [
-    "- Apps that are meant to survive a respring are captured more reliably",
-    "- System apps like Spotlight are no longer kept alive needlessly due to over-capture from blacklist, so they should not get stuck after a respring.",
-    "- Blacklist mode only considers regular apps shown in the app list",
-    "- Stale Now Playing entries are cleared instead of reused.",
-    "- SpringBoard and runningboardd now use separate, smaller hooks w/ better logging when loading or capture goes wrong.",
-]
 COMPATIBILITY = "iOS 15+"
 FORMATS = "Rootless · RootHide"
 
@@ -38,6 +35,7 @@ def arguments():
     parser.add_argument("--version", required=True)
     parser.add_argument("--page-id", required=True)
     parser.add_argument("--github-repository", required=True)
+    parser.add_argument("--release-notes", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -87,8 +85,8 @@ def sileo_button(title: str, action: str) -> dict[str, str]:
     }
 
 
-def render_sileo(version: str, package: str, visits: str, downloads: str) -> dict:
-    changelog_entries = clean_list_entries(CHANGELOG)
+def render_sileo(version: str, package: str, visits: str, downloads: str, changelog: list[str]) -> dict:
+    changelog_entries = clean_list_entries(changelog)
     views: list[dict] = [
         {
             "class": "DepictionMarkdownView",
@@ -141,13 +139,13 @@ def render_sileo(version: str, package: str, visits: str, downloads: str) -> dic
     }
 
 
-def render_html(name: str, version: str, package: str, base_url: str, visits: str, downloads: str) -> str:
+def render_html(name: str, version: str, package: str, base_url: str, visits: str, downloads: str, changelog: list[str]) -> str:
     links = "\n".join(
         f'<a href="{html.escape(url, quote=True)}" target="_blank" rel="noreferrer">'
         f"{html.escape(title)} <span>↗</span></a>"
         for title, url in LINKS
     )
-    changelog = html_list(CHANGELOG)
+    changelog = html_list(changelog)
     about = html_paragraphs(ABOUT_MARKDOWN)
     information = html_list([
         f"Version: {html.escape(version)}",
@@ -207,8 +205,9 @@ def render_html(name: str, version: str, package: str, base_url: str, visits: st
 def main():
     args = arguments()
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    notes_version, changelog = validate(args.release_notes, args.version)
     visits, downloads = counters(args.page_id, args.github_repository)
-    depiction = render_sileo(args.version, args.package, visits, downloads)
+    depiction = render_sileo(notes_version, args.package, visits, downloads, changelog)
     (args.output_dir / f"{args.package}.json").write_text(
         json.dumps(depiction, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -219,6 +218,7 @@ def main():
         "https://hadobedo.github.io/repo",
         visits,
         downloads,
+        changelog,
     )
     (args.output_dir / f"{args.package}.html").write_text(html_page, encoding="utf-8")
 

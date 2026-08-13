@@ -15,6 +15,9 @@ on:
       - 'layout/**'
       - 'vendor/**'
       - 'scripts/verify_package.sh'
+      - 'scripts/release_notes.py'
+      - '.github/RELEASE_NOTES.md'
+      - 'tests/**'
       - '.github/workflows/build.yml'
   pull_request:
     paths:
@@ -27,6 +30,9 @@ on:
       - 'layout/**'
       - 'vendor/**'
       - 'scripts/verify_package.sh'
+      - 'scripts/release_notes.py'
+      - '.github/RELEASE_NOTES.md'
+      - 'tests/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
 
@@ -63,6 +69,9 @@ jobs:
           test "$count" -eq 1
           test -n "$version"
           printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+      - name: Run contract test
+        run: python3 tests/test_roadrunnerreborn_contract.py
 
       - name: Install RootHide Theos
         shell: bash

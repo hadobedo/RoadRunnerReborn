@@ -20,6 +20,9 @@ on:
       - 'scripts/render_repo_depiction.py'
       - 'scripts/add_depiction_counters.py'
       - '.github/workflows/publish.yml'
+      - 'scripts/release_notes.py'
+      - '.github/RELEASE_NOTES.md'
+      - 'tests/**'
   workflow_dispatch:
 
 permissions:
@@ -56,6 +59,7 @@ jobs:
           version=$(awk '$1 == "Version:" && NF == 2 { print $2 }' control)
           test "$count" -eq 1
           test -n "$version"
+          python3 scripts/release_notes.py .github/RELEASE_NOTES.md --expected-version "$version"
 
           case "$GITHUB_REF" in
             refs/heads/development)
@@ -96,6 +100,9 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Run contract test
+        run: python3 tests/test_roadrunnerreborn_contract.py
 
       - name: Install RootHide Theos
         shell: bash
@@ -165,7 +172,11 @@ jobs:
           install -d -m 700 "$HOME/.ssh"
           printf '%s\n' "$REPO_DEPLOY_KEY" > "$HOME/.ssh/repo-deploy"
           chmod 600 "$HOME/.ssh/repo-deploy"
-          ssh-keyscan -H github.com >> "$HOME/.ssh/known_hosts"
+          cat > "$HOME/.ssh/known_hosts" <<'EOF'
+          github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+          github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg=
+          github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
+          EOF
           cat > "$HOME/.ssh/config" <<'EOF'
           Host github.com
             IdentityFile ~/.ssh/repo-deploy

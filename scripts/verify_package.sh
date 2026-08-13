@@ -59,8 +59,32 @@ dylib=$(find "$tmp/data" -name RoadRunnerReborn.dylib -type f -print -quit)
 daemon_dylib=$(find "$tmp/data" -name RoadRunnerRebornDaemon.dylib -type f -print -quit)
 prefs=$(find "$tmp/data" -name RoadRunnerRebornPrefs -type f -print -quit)
 test -n "$dylib" -a -n "$daemon_dylib" -a -n "$prefs"
-file "$dylib" "$daemon_dylib" "$prefs" | grep -F 'arm64' >/dev/null
-file "$dylib" "$daemon_dylib" "$prefs" | grep -F 'arm64e' >/dev/null
+
+require_architecture() {
+    local file_path=$1
+    local expected=$2
+    local description=$3
+    local output
+    output=$(file "$file_path")
+    case "$expected" in
+        iphoneos-arm64)
+            printf '%s\n' "$output" | grep -F 'Mach-O universal binary with 2 architectures:' >/dev/null || return 1
+            printf '%s\n' "$output" | grep -F '[arm64:' >/dev/null || return 1
+            printf '%s\n' "$output" | grep -F 'arm64e (caps:' >/dev/null || return 1
+            return 0
+            ;;
+        iphoneos-arm64e)
+            printf '%s\n' "$output" | grep -F 'Mach-O 64-bit arm64e (caps:' >/dev/null || return 1
+            ! printf '%s\n' "$output" | grep -F 'universal binary' >/dev/null
+            return 0
+            ;;
+    esac
+    echo "$description has unexpected architecture: $output" >&2
+    return 1
+}
+require_architecture "$dylib" "$EXPECTED_ARCH" RoadRunnerReborn
+require_architecture "$daemon_dylib" "$EXPECTED_ARCH" RoadRunnerRebornDaemon
+require_architecture "$prefs" "$EXPECTED_ARCH" RoadRunnerRebornPrefs
 
 strings "$dylib" "$daemon_dylib" "$prefs" | grep -E 'RocketBootstrap|AppList\.framework|RBProcessManager.*executeTerminateRequest|RBSXPCMessage|posix_spawn|posix_spawnp|killpg' && {
     echo 'prohibited runtime reference found' >&2

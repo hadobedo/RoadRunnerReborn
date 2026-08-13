@@ -2,6 +2,9 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+// Secure shared transport under the mobile preferences directory. The
+// rootless-aware and unprefixed paths are attempted; legacy /tmp payloads are
+// intentionally ignored and never imported.
 extern NSString *const RRRSurvivorsFilePath;
 extern NSString *const RRRSpringBoardReadyNotification;
 extern NSString *const RRRSurvivorsReadyNotification;
