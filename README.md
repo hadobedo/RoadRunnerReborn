@@ -79,7 +79,7 @@ make clean package \
   THEOS_PACKAGE_SCHEME=rootless \
   ARCHS="arm64 arm64e" \
   FINALPACKAGE=1 \
-  PACKAGE_VERSION=1.1.0
+  PACKAGE_VERSION=1.1.1
 ```
 
 ### RootHide
@@ -90,7 +90,7 @@ make clean package \
   THEOS_PACKAGE_SCHEME=roothide \
   ARCHS="arm64e" \
   FINALPACKAGE=1 \
-  PACKAGE_VERSION=1.1.0
+  PACKAGE_VERSION=1.1.1
 ```
 
 ## License and credits

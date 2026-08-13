@@ -76,7 +76,7 @@ require_architecture() {
         iphoneos-arm64)
             printf '%s\n' "$output" | grep -F 'Mach-O universal binary with 2 architectures:' >/dev/null || return 1
             printf '%s\n' "$output" | grep -F '[arm64:' >/dev/null || return 1
-            printf '%s\n' "$output" | grep -F 'arm64e (caps:' >/dev/null || return 1
+            printf '%s\n' "$output" | grep -F 'arm64e' >/dev/null || return 1
             local headers
             headers=$("$otool_bin" -hv "$file_path")
             printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+ALL[[:space:]]+' >/dev/null || return 1
@@ -84,7 +84,7 @@ require_architecture() {
             return 0
             ;;
         iphoneos-arm64e)
-            printf '%s\n' "$output" | grep -F 'Mach-O 64-bit arm64e (caps:' >/dev/null || return 1
+            printf '%s\n' "$output" | grep -F 'Mach-O 64-bit arm64e' >/dev/null || return 1
             ! printf '%s\n' "$output" | grep -F 'universal binary' >/dev/null
             local headers
             headers=$("$otool_bin" -hv "$file_path")

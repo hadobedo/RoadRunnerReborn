@@ -2,7 +2,7 @@
 #import "RRRPreferences.h"
 #import <rootless.h>
 
-NSString *const RRRVersionString = @"1.1.0"; // keep in sync with control Version
+NSString *const RRRVersionString = @"1.1.1"; // keep in sync with control Version
 
 void RRRLog(NSString *format, ...) {
     if (!RRRLoggingEnabled()) return;
