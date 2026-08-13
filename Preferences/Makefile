@@ -4,7 +4,7 @@ ARCHS ?= arm64 arm64e
 include $(THEOS)/makefiles/common.mk
 
 BUNDLE_NAME = RoadRunnerRebornPrefs
-RoadRunnerRebornPrefs_FILES = RRRRootListController.m RRRApplicationListController.m RRRLinksListController.m RRRCreditCells.m RRRModeSegmentCell.m RRRAdvancedListController.m ../RRRPreferences.m
+RoadRunnerRebornPrefs_FILES = RRRRootListController.m RRRApplicationListController.m RRRLinksListController.m RRRCreditCells.m RRRModeSegmentCell.m RRRAdvancedListController.m ../RRRPolicy.m ../RRRPreferences.m
 RoadRunnerRebornPrefs_INSTALL_PATH = /Library/PreferenceBundles
 RoadRunnerRebornPrefs_FRAMEWORKS = UIKit
 # Preferences is a private framework and is not shipped in the clean RootHide
