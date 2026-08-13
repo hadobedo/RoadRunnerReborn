@@ -60,6 +60,12 @@ daemon_dylib=$(find "$tmp/data" -name RoadRunnerRebornDaemon.dylib -type f -prin
 prefs=$(find "$tmp/data" -name RoadRunnerRebornPrefs -type f -print -quit)
 test -n "$dylib" -a -n "$daemon_dylib" -a -n "$prefs"
 
+otool_bin=${OTOOL:-$(command -v otool || true)}
+if [ -z "$otool_bin" ] && [ -n "${THEOS:-}" ] && [ -x "$THEOS/toolchain/linux/iphone/bin/otool" ]; then
+    otool_bin="$THEOS/toolchain/linux/iphone/bin/otool"
+fi
+test -n "$otool_bin" || { echo 'otool is required for Mach-O validation' >&2; exit 1; }
+
 require_architecture() {
     local file_path=$1
     local expected=$2
@@ -71,11 +77,19 @@ require_architecture() {
             printf '%s\n' "$output" | grep -F 'Mach-O universal binary with 2 architectures:' >/dev/null || return 1
             printf '%s\n' "$output" | grep -F '[arm64:' >/dev/null || return 1
             printf '%s\n' "$output" | grep -F 'arm64e (caps:' >/dev/null || return 1
+            local headers
+            headers=$("$otool_bin" -hv "$file_path")
+            printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+ALL[[:space:]]+' >/dev/null || return 1
+            printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+E[[:space:]]+' >/dev/null || return 1
             return 0
             ;;
         iphoneos-arm64e)
             printf '%s\n' "$output" | grep -F 'Mach-O 64-bit arm64e (caps:' >/dev/null || return 1
             ! printf '%s\n' "$output" | grep -F 'universal binary' >/dev/null
+            local headers
+            headers=$("$otool_bin" -hv "$file_path")
+            printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+E[[:space:]]+' >/dev/null || return 1
+            ! printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+ALL[[:space:]]+' >/dev/null
             return 0
             ;;
     esac
@@ -91,11 +105,6 @@ strings "$dylib" "$daemon_dylib" "$prefs" | grep -E 'RocketBootstrap|AppList\.fr
     exit 1
 } || true
 
-otool_bin=${OTOOL:-$(command -v otool || true)}
-if [ -z "$otool_bin" ] && [ -n "${THEOS:-}" ] && [ -x "$THEOS/toolchain/linux/iphone/bin/otool" ]; then
-    otool_bin="$THEOS/toolchain/linux/iphone/bin/otool"
-fi
-test -n "$otool_bin" || { echo 'otool is required for Mach-O validation' >&2; exit 1; }
 "$otool_bin" -L "$prefs" | grep -F "$expected_load" >/dev/null
 
 # The runningboardd dylib is Foundation-only: UIKit/SpringBoard code must not
