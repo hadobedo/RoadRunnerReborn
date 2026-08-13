@@ -65,36 +65,39 @@ otool_bin=${OTOOL:-$(command -v otool || true)}
 if [ -z "$otool_bin" ] && [ -n "${THEOS:-}" ] && [ -x "$THEOS/toolchain/linux/iphone/bin/otool" ]; then
     otool_bin="$THEOS/toolchain/linux/iphone/bin/otool"
 fi
+lipo_bin=${LIPO:-$(command -v lipo || true)}
+if [ -z "$lipo_bin" ] && [ -n "${THEOS:-}" ] && [ -x "$THEOS/toolchain/linux/iphone/bin/lipo" ]; then
+    lipo_bin="$THEOS/toolchain/linux/iphone/bin/lipo"
+fi
 test -n "$otool_bin" || { echo 'otool is required for Mach-O validation' >&2; exit 1; }
+test -n "$lipo_bin" || { echo 'lipo is required for Mach-O validation' >&2; exit 1; }
 
 require_architecture() {
     local file_path=$1
     local expected=$2
     local description=$3
-    local output
-    output=$(file "$file_path")
+    local architectures
+    architectures=$("$lipo_bin" -archs "$file_path")
     case "$expected" in
         iphoneos-arm64)
-            printf '%s\n' "$output" | grep -F 'Mach-O universal binary with 2 architectures:' >/dev/null || return 1
-            printf '%s\n' "$output" | grep -F '[arm64:' >/dev/null || return 1
-            printf '%s\n' "$output" | grep -F 'arm64e' >/dev/null || return 1
+            printf '%s\n' "$architectures" | grep -E '(^|[[:space:]])arm64([[:space:]]|$)' >/dev/null || return 1
+            printf '%s\n' "$architectures" | grep -E '(^|[[:space:]])arm64e([[:space:]]|$)' >/dev/null || return 1
             local headers
-            headers=$("$otool_bin" -hv "$file_path")
+            headers=$("$otool_bin" -hv -arch arm64 "$file_path")
             printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+ALL[[:space:]]+' >/dev/null || return 1
+            headers=$("$otool_bin" -hv -arch arm64e "$file_path")
             printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+E[[:space:]]+' >/dev/null || return 1
             return 0
             ;;
         iphoneos-arm64e)
-            printf '%s\n' "$output" | grep -F 'Mach-O 64-bit arm64e' >/dev/null || return 1
-            ! printf '%s\n' "$output" | grep -F 'universal binary' >/dev/null
+            test "$architectures" = arm64e || return 1
             local headers
-            headers=$("$otool_bin" -hv "$file_path")
+            headers=$("$otool_bin" -hv -arch arm64e "$file_path")
             printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+E[[:space:]]+' >/dev/null || return 1
-            ! printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+ALL[[:space:]]+' >/dev/null
             return 0
             ;;
     esac
-    echo "$description has unexpected architecture: $output" >&2
+    echo "$description has unexpected architectures: $architectures" >&2
     return 1
 }
 require_architecture "$dylib" "$EXPECTED_ARCH" RoadRunnerReborn
