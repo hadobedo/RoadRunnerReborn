@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+trap 'status=$?; printf "verify_package failed at line %s: %s (status %s)\n" "$LINENO" "$BASH_COMMAND" "$status" >&2; exit "$status"' ERR
 
 : "${EXPECTED_ARCH:?EXPECTED_ARCH is required}"
 : "${EXPECTED_VERSION:?EXPECTED_VERSION is required}"
