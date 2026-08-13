@@ -70,28 +70,35 @@ static BOOL RRRPathIsSecure(NSString *path, BOOL requireExisting) {
 }
 
 static int RRRAcquireTransportLock(void) {
-    NSString *path = [RRRSurvivorPaths()[0] stringByAppendingString:@".lock"];
-    if (!RRRPathIsSecure(path, NO)) return -1;
-    int fd = open(path.fileSystemRepresentation, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
-    if (fd >= 0) {
-        BOOL secure = fchmod(fd, 0600) == 0;
-        if (secure && geteuid() == 0) secure = fchown(fd, RRRMobileUID(), RRRMobileGID()) == 0;
-        if (!secure) {
-            close(fd);
-            unlink(path.fileSystemRepresentation);
-            return -1;
+    // Both payload candidates must coordinate through the same lock when the
+    // rootless-prefixed path is unavailable (or vice versa). Try candidates
+    // in the same order in both hosts and use the first secure lock location.
+    for (NSString *payloadPath in RRRSurvivorPaths()) {
+        NSString *path = [payloadPath stringByAppendingString:@".lock"];
+        if (!RRRPathIsSecure(path, NO)) continue;
+
+        int fd = open(path.fileSystemRepresentation, O_RDWR | O_CREAT | O_EXCL | O_NOFOLLOW, 0600);
+        if (fd >= 0) {
+            BOOL secure = fchmod(fd, 0600) == 0;
+            if (secure && geteuid() == 0) secure = fchown(fd, RRRMobileUID(), RRRMobileGID()) == 0;
+            if (!secure) {
+                close(fd);
+                unlink(path.fileSystemRepresentation);
+                continue;
+            }
+        } else if (errno == EEXIST) {
+            struct stat item;
+            if (lstat(path.fileSystemRepresentation, &item) != 0 || !S_ISREG(item.st_mode) ||
+                (item.st_mode & (S_IWGRP | S_IWOTH)) != 0 || item.st_uid != RRRMobileUID()) continue;
+            fd = open(path.fileSystemRepresentation, O_RDWR | O_NOFOLLOW);
         }
-    } else if (errno == EEXIST) {
-        struct stat item;
-        if (lstat(path.fileSystemRepresentation, &item) != 0 || !S_ISREG(item.st_mode) ||
-            (item.st_mode & (S_IWGRP | S_IWOTH)) != 0 || item.st_uid != RRRMobileUID()) return -1;
-        fd = open(path.fileSystemRepresentation, O_RDWR | O_NOFOLLOW);
+        if (fd < 0 || flock(fd, LOCK_EX) != 0) {
+            if (fd >= 0) close(fd);
+            continue;
+        }
+        return fd;
     }
-    if (fd < 0 || flock(fd, LOCK_EX) != 0) {
-        if (fd >= 0) close(fd);
-        return -1;
-    }
-    return fd;
+    return -1;
 }
 
 static void RRRReleaseTransportLock(int fd) {

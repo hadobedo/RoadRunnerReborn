@@ -69,6 +69,7 @@ def main():
     assert "/tmp/roadrunnerreborn-survivors.plist" not in (project / "RRRSurvivors.m").read_text()
     survivors = (project / "RRRSurvivors.m").read_text()
     assert "O_EXCL | O_NOFOLLOW" in survivors
+    assert "for (NSString *payloadPath in RRRSurvivorPaths())" in survivors
     assert "0600" in survivors and "fsync(fd)" in survivors
     assert '"revision"' in survivors
     assert "RRRSurvivorsFilePath" in (project / "RRRSurvivors.h").read_text()
