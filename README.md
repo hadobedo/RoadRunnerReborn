@@ -19,11 +19,11 @@ whitelist/blacklist alive through `sbreload` and SpringBoard resprings.
 
 **Tested on:**
 
-- iPhone 13 Pro Max, iOS 15.4.1 (rootless)
+- iPhone 13 Pro Max, iOS 15.4.1 (rootless & roothide)
 - iPhone 14 Pro Max, iOS 16.4 (rootless)
 - iPhone 13 Pro, iOS 17.1.1 (rootless)
 
-RoadRunner Reborn should(?) work on iOS 18 and newer, let me know!
+RoadRunner Reborn is reported to work up to iOS 26.0.1!
 
 ## Screenshots
 
@@ -64,7 +64,6 @@ Dependencies:
 | `vendor/` | Project-owned AltList linker metadata and public header |
 | `scripts/` | Package validation, feed publication, and depiction generation |
 | `.github/workflows/` | Build, development-feed, and release automation |
-| `RoadRunner/` | Local-only upstream reference checkout; not shipped |
 
 ## Build
 
@@ -79,7 +78,7 @@ make clean package \
   THEOS_PACKAGE_SCHEME=rootless \
   ARCHS="arm64 arm64e" \
   FINALPACKAGE=1 \
-  PACKAGE_VERSION=1.1.1
+  PACKAGE_VERSION=1.1.2
 ```
 
 ### RootHide
@@ -90,7 +89,7 @@ make clean package \
   THEOS_PACKAGE_SCHEME=roothide \
   ARCHS="arm64 arm64e" \
   FINALPACKAGE=1 \
-  PACKAGE_VERSION=1.1.1
+  PACKAGE_VERSION=1.1.2
 ```
 
 Both packages ship universal `arm64 + arm64e` binaries: the arm64e slice loads
