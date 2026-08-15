@@ -24,7 +24,7 @@ cp "$ROOTHIDE_DEB" "$FEED_DIR/roothide/debs/"
 render_depiction() {
     local output_dir=$1
     mkdir -p "$output_dir"
-    python3 "$source_root/scripts/render_repo_depiction.py" \
+    python3 "$source_root/scripts/feed/depiction.py" render \
     --output-dir "$output_dir" \
     --package "$package" \
     --name 'RoadRunner Reborn' \
@@ -45,7 +45,7 @@ fi
 # published from either product's workflow.
 for dotto_dir in "$repo_root" "$FEED_DIR"; do
     if [ -f "$dotto_dir/depictions/com.nicksworks.dottoplusplus.json" ] && [ -f "$dotto_dir/depictions/com.nicksworks.dottoplusplus.html" ]; then
-        python3 "$source_root/scripts/add_depiction_counters.py" \
+        python3 "$source_root/scripts/feed/depiction.py" counters \
             --json "$dotto_dir/depictions/com.nicksworks.dottoplusplus.json" \
             --html "$dotto_dir/depictions/com.nicksworks.dottoplusplus.html" \
             --page-id 'hadobedo.github.io/repo/depictions/com.nicksworks.dottoplusplus' \
@@ -62,7 +62,7 @@ write_index() {
         cd "$directory"
         dpkg-scanpackages -m debs /dev/null > Packages
         if [ -n "$dev_depictions" ]; then
-            python3 "$source_root/scripts/rewrite_dev_depictions.py" "$package" Packages
+            python3 "$source_root/scripts/feed/depiction.py" rewrite-dev "$package" Packages
         fi
         gzip -9c Packages > Packages.gz
         xz -9c Packages > Packages.xz

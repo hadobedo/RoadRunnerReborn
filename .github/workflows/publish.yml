@@ -15,12 +15,11 @@ on:
       - 'control'
       - 'layout/**'
       - 'vendor/**'
-      - 'scripts/publish_repo.sh'
       - 'scripts/verify_package.sh'
-      - 'scripts/render_repo_depiction.py'
-      - 'scripts/add_depiction_counters.py'
-      - '.github/workflows/publish.yml'
       - 'scripts/release_notes.py'
+      - 'scripts/feed/publish_repo.sh'
+      - 'scripts/feed/depiction.py'
+      - '.github/workflows/publish.yml'
       - '.github/RELEASE_NOTES.md'
       - 'tests/**'
       - '.github/workflows/build-package.yml'
@@ -154,7 +153,7 @@ jobs:
           ROOTHIDE_DEB="$GITHUB_WORKSPACE/$roothide" \
           SOURCE_ROOT="$GITHUB_WORKSPACE/source" \
           RELEASE_VERSION="$RELEASE_VERSION" \
-          "$GITHUB_WORKSPACE/source/scripts/publish_repo.sh"
+          "$GITHUB_WORKSPACE/source/scripts/feed/publish_repo.sh"
 
       - name: Commit and publish feed
         id: feed

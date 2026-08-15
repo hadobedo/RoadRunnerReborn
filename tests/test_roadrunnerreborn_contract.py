@@ -133,25 +133,26 @@ def main():
 
     notes = project / ".github/RELEASE_NOTES.md"
     assert notes.exists()
-    assert "from release_notes import validate" in (project / "scripts/render_repo_depiction.py").read_text()
-    depiction = (project / "scripts/render_repo_depiction.py").read_text()
+    assert "from release_notes import validate" in (project / "scripts/feed/depiction.py").read_text()
+    depiction = (project / "scripts/feed/depiction.py").read_text()
     # Counters are cumulative: GitHub /total sums every release's assets
     # (all versions, rootless + RootHide) and the visitor badge is keyed
     # only by the constant page-id.
     assert "{repo}/latest/total" not in depiction
     assert 'github/downloads/{repo}/total?label=Downloads' in depiction
     assert 'badge?page_id={page}' in depiction
-    assert "--release-notes" in (project / "scripts/publish_repo.sh").read_text()
-    publish_script = (project / "scripts/publish_repo.sh").read_text()
+    assert "--release-notes" in (project / "scripts/feed/publish_repo.sh").read_text()
+    publish_script = (project / "scripts/feed/publish_repo.sh").read_text()
     # Dev publishes render into the dev subdirectory and rewrite the dev
     # package index to point at it; the stable depiction is only touched
     # by stable publishes.
     assert 'render_depiction "$FEED_DIR/depictions"' in publish_script
     assert 'render_depiction "$repo_root/depictions"' in publish_script
     assert 'cp "$repo_root/depictions/$package.json"' not in publish_script
-    assert 'scripts/rewrite_dev_depictions.py' in publish_script
-    rewrite = (project / "scripts/rewrite_dev_depictions.py").read_text()
-    assert 'https://hadobedo.github.io/repo/dev/depictions/' in rewrite
+    assert 'depiction.py" rewrite-dev' in publish_script
+    # The merged depiction tool covers render, dev rewriting, and counters.
+    assert 'https://hadobedo.github.io/repo/dev/depictions/' in depiction
+    assert '"rewrite-dev"' in depiction and '"counters"' in depiction and '"render"' in depiction
     assert "tests/**" in (project / ".github/workflows/build.yml").read_text()
     assert "tests/**" in (project / ".github/workflows/publish.yml").read_text()
     # The build matrix lives in one reusable workflow that both CI and

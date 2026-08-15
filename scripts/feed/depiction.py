@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Render the RoadRunner Reborn Sileo and HTML depictions."""
+"""Depiction tooling for the repo feed.
+
+Subcommands:
+  render        Render the Sileo and HTML depictions from the release notes.
+  rewrite-dev   Point the dev feed's package index at dev-scoped depictions.
+  counters      Add visit/download counters to existing depictions (dotto++).
+"""
 
 import argparse
 import html
@@ -8,8 +14,8 @@ import re
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from release_notes import validate
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from release_notes import validate  # noqa: E402
 
 ABOUT_MARKDOWN = """**RoadRunner Reborn** makes your Now Playing app (and optionally other selected apps) stay alive through sbreload and resprings, keeping your music and other apps uninterrupted!
 
@@ -26,17 +32,8 @@ LINKS = [
     ("YouTube", "https://www.youtube.com/@NicksWorks"),
 ]
 
-
-def arguments():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--package", required=True)
-    parser.add_argument("--name", required=True)
-    parser.add_argument("--version", required=True)
-    parser.add_argument("--page-id", required=True)
-    parser.add_argument("--github-repository", required=True)
-    parser.add_argument("--release-notes", type=Path, required=True)
-    return parser.parse_args()
+STABLE_PREFIX = "https://hadobedo.github.io/repo/depictions/"
+DEV_PREFIX = "https://hadobedo.github.io/repo/dev/depictions/"
 
 
 def counters(page_id: str, repository: str) -> tuple[str, str]:
@@ -206,12 +203,11 @@ def render_html(name: str, version: str, package: str, base_url: str, visits: st
 '''
 
 
-def main():
-    args = arguments()
+def cmd_render(args: argparse.Namespace) -> None:
     args.output_dir.mkdir(parents=True, exist_ok=True)
     notes_version, changelog = validate(args.release_notes, args.version)
     visits, downloads = counters(args.page_id, args.github_repository)
-    depiction = render_sileo(notes_version, args.package, visits, downloads, changelog)
+    depiction = render_sileo(args.version, args.package, visits, downloads, changelog)
     (args.output_dir / f"{args.package}.json").write_text(
         json.dumps(depiction, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -225,6 +221,69 @@ def main():
         changelog,
     )
     (args.output_dir / f"{args.package}.html").write_text(html_page, encoding="utf-8")
+
+
+def cmd_rewrite_dev(args: argparse.Namespace) -> None:
+    package, packages_path = args.package, Path(args.packages_file)
+    blocks = packages_path.read_text(encoding="utf-8").split("\n\n")
+    rewritten = []
+    for block in blocks:
+        if block.startswith("Package: " + package + "\n"):
+            block = block.replace(STABLE_PREFIX, DEV_PREFIX)
+        rewritten.append(block)
+    packages_path.write_text("\n\n".join(rewritten), encoding="utf-8")
+
+
+def cmd_counters(args: argparse.Namespace) -> None:
+    visits, downloads = counters(args.page_id, args.github_repository)
+    markdown = f"![Visits]({visits})  ![Downloads]({downloads})"
+
+    depiction = json.loads(Path(args.json).read_text(encoding="utf-8"))
+    details = depiction.get("tabs", [])[0]
+    views = details.setdefault("views", [])
+    if not any(view.get("title") == "Usage" for view in views if isinstance(view, dict)):
+        views.extend([
+            {"class": "DepictionSeparatorView"},
+            {"class": "DepictionHeaderView", "title": "Usage"},
+            {"class": "DepictionMarkdownView", "markdown": markdown, "useSpacing": True},
+        ])
+    Path(args.json).write_text(json.dumps(depiction, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    page = f'\n    <section class="card"><h2>Usage</h2><div style="display:flex;gap:8px;flex-wrap:wrap;"><img src="{visits}" alt="Visits"><img src="{downloads}" alt="Downloads"></div></section>'
+    page_html = Path(args.html).read_text(encoding="utf-8")
+    if "visitor-badge.laobi.icu" not in page_html:
+        page_html = page_html.replace("\n    <footer>", page + "\n    <footer>", 1)
+    Path(args.html).write_text(page_html, encoding="utf-8")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="depiction.py")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    render = subparsers.add_parser("render")
+    render.add_argument("--output-dir", required=True, type=Path)
+    render.add_argument("--package", required=True)
+    render.add_argument("--name", required=True)
+    render.add_argument("--version", required=True)
+    render.add_argument("--page-id", required=True)
+    render.add_argument("--github-repository", required=True)
+    render.add_argument("--release-notes", type=Path, required=True)
+    render.set_defaults(func=cmd_render)
+
+    rewrite = subparsers.add_parser("rewrite-dev")
+    rewrite.add_argument("package")
+    rewrite.add_argument("packages_file")
+    rewrite.set_defaults(func=cmd_rewrite_dev)
+
+    counters_parser = subparsers.add_parser("counters")
+    counters_parser.add_argument("--json", type=Path, required=True)
+    counters_parser.add_argument("--html", type=Path, required=True)
+    counters_parser.add_argument("--page-id", required=True)
+    counters_parser.add_argument("--github-repository", required=True)
+    counters_parser.set_defaults(func=cmd_counters)
+
+    args = parser.parse_args()
+    args.func(args)
 
 
 if __name__ == "__main__":
