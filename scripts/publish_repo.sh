@@ -62,20 +62,7 @@ write_index() {
         cd "$directory"
         dpkg-scanpackages -m debs /dev/null > Packages
         if [ -n "$dev_depictions" ]; then
-            python3 -c '
-import sys
-package = sys.argv[1]
-blocks = open("Packages").read().split("\n\n")
-out = []
-for block in blocks:
-    if block.startswith("Package: " + package + "\n"):
-        block = block.replace(
-            "https://hadobedo.github.io/repo/depictions/",
-            "https://hadobedo.github.io/repo/dev/depictions/",
-        )
-    out.append(block)
-open("Packages", "w").write("\n\n".join(out))
-' "$package"
+            python3 "$source_root/scripts/rewrite_dev_depictions.py" "$package" Packages
         fi
         gzip -9c Packages > Packages.gz
         xz -9c Packages > Packages.xz

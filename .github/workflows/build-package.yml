@@ -1,0 +1,79 @@
+name: Build package
+
+# Reusable build: the single source of truth for the build matrix, the
+# RootHide Theos install, package builds, and verification. Called by
+# build.yml (push/PR CI) and publish.yml (dev feed / stable release).
+on:
+  workflow_call:
+    inputs:
+      package_version:
+        description: Package version to build and verify
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  ROOTHIDE_THEOS_COMMIT: 88506b2c22e9e07dd4ed055f23c9e398a117a2c7
+
+jobs:
+  build:
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - scheme: rootless
+            archs: "arm64 arm64e"
+            expected_arch: iphoneos-arm64
+          # Universal binaries in both variants: A11 devices (iPhone 8/X)
+          # execute arm64 only and reject arm64e-only Mach-Os. The deb keeps
+          # the iphoneos-arm64e architecture field.
+          - scheme: roothide
+            archs: "arm64 arm64e"
+            expected_arch: iphoneos-arm64e
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Run contract test
+        run: python3 tests/test_roadrunnerreborn_contract.py
+
+      - name: Install RootHide Theos
+        shell: bash
+        env:
+          THEOS: ${{ runner.temp }}/roothide-theos
+        run: |
+          set -euo pipefail
+          git clone --filter=blob:none --no-checkout https://github.com/roothide/theos.git "$THEOS"
+          git -C "$THEOS" checkout --detach "$ROOTHIDE_THEOS_COMMIT"
+          git -C "$THEOS" submodule update --init --recursive
+          printf 'THEOS=%s\n' "$THEOS" >> "$GITHUB_ENV"
+          test "$(git -C "$THEOS" rev-parse HEAD)" = "$ROOTHIDE_THEOS_COMMIT"
+
+      - name: Build ${{ matrix.scheme }} package
+        run: |
+          make clean package FINALPACKAGE=1 \
+            THEOS_PACKAGE_SCHEME=${{ matrix.scheme }} \
+            ARCHS="${{ matrix.archs }}" \
+            PACKAGE_VERSION="${{ inputs.package_version }}"
+
+      - name: Verify package
+        env:
+          EXPECTED_ARCH: ${{ matrix.expected_arch }}
+          EXPECTED_VERSION: ${{ inputs.package_version }}
+          PACKAGE_SCHEME: ${{ matrix.scheme }}
+        run: scripts/verify_package.sh
+
+      - name: Record checksum
+        run: shasum -a 256 packages/*.deb | tee packages/SHA256SUMS
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.scheme }}
+          path: |
+            packages/*.deb
+            packages/SHA256SUMS
+          if-no-files-found: error

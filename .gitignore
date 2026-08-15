@@ -18,9 +18,6 @@ __pycache__/
 !/README.md
 PROJECT_MAP.md
 
-# Tests are maintained locally, not shipped in the public source repository
-tests/
-
 # Local checkout of the original RoadRunner reference
 RoadRunner/
 

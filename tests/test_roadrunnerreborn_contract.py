@@ -147,15 +147,27 @@ def main():
     assert 'render_depiction "$FEED_DIR/depictions"' in publish_script
     assert 'render_depiction "$repo_root/depictions"' in publish_script
     assert 'cp "$repo_root/depictions/$package.json"' not in publish_script
-    assert 'https://hadobedo.github.io/repo/dev/depictions/' in publish_script
+    assert 'scripts/rewrite_dev_depictions.py' in publish_script
+    rewrite = (project / "scripts/rewrite_dev_depictions.py").read_text()
+    assert 'https://hadobedo.github.io/repo/dev/depictions/' in rewrite
     assert "tests/**" in (project / ".github/workflows/build.yml").read_text()
     assert "tests/**" in (project / ".github/workflows/publish.yml").read_text()
-    # Both variants ship universal arm64 + arm64e binaries so A11 devices
-    # can load the package; the roothide deb keeps iphoneos-arm64e.
+    # The build matrix lives in one reusable workflow that both CI and
+    # publish call. Both variants ship universal arm64 + arm64e binaries
+    # so A11 devices can load the package; the roothide deb keeps
+    # iphoneos-arm64e.
+    build_package = (project / ".github/workflows/build-package.yml").read_text()
+    assert 'scheme: roothide\n            archs: "arm64 arm64e"' in build_package
+    assert 'expected_arch: iphoneos-arm64e' in build_package
     for workflow in (project / ".github/workflows/build.yml", project / ".github/workflows/publish.yml"):
-        workflow_text = workflow.read_text()
-        assert 'scheme: roothide\n            archs: "arm64 arm64e"' in workflow_text
-        assert 'expected_arch: iphoneos-arm64e' in workflow_text
+        assert 'uses: ./.github/workflows/build-package.yml' in workflow.read_text()
+    # Local tooling: build wrapper and release prep script exist and run.
+    for script in ("build.sh", "release.sh"):
+        path = project / "scripts" / script
+        assert path.exists() and (path.stat().st_mode & 0o111)
+    assert "ARCHS='arm64 arm64e'" in (project / "scripts/build.sh").read_text()
+    # The shipped contract test is tracked and must not be gitignored.
+    assert 'tests/' not in (project / ".gitignore").read_text()
     verify = (project / "scripts/verify_package.sh").read_text()
     assert "require_architecture" in verify
     # Every shipped Mach-O must carry both slices, regardless of package arch.
