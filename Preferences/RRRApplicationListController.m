@@ -1,5 +1,5 @@
 #import "RRRApplicationListController.h"
-#import "../RRRPreferences.h"
+#import "../Sources/RRRPreferences.h"
 
 @implementation RRRApplicationListController
 

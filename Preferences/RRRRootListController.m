@@ -1,5 +1,5 @@
 #import "RRRRootListController.h"
-#import "../RRRPreferences.h"
+#import "../Sources/RRRPreferences.h"
 #import <UIKit/UIKit.h>
 
 static NSString *const RRREnabledKey = @"enabled";

@@ -42,8 +42,9 @@ int main(void) {
         source = root / "policy_probe.m"
         binary = root / "policy_probe"
         source.write_text(probe, encoding="utf-8")
-        command = [clang, "-fobjc-arc", "-framework", "Foundation", "-I", str(project),
-                   str(source), str(project / "RRRPolicy.m"), "-o", str(binary)]
+        command = [clang, "-fobjc-arc", "-framework", "Foundation",
+                   "-I", str(project), "-I", str(project / "Sources"),
+                   str(source), str(project / "Sources/RRRPolicy.m"), "-o", str(binary)]
         compile_result = subprocess.run(command, cwd=project, text=True, capture_output=True)
         if compile_result.returncode:
             raise AssertionError(f"policy probe compile failed:\n{compile_result.stderr}")
@@ -55,27 +56,27 @@ int main(void) {
 
 def main():
     project = Path(__file__).resolve().parents[1]
-    policy = (project / "RRRPolicy.m").read_text()
-    identity = (project / "RRRIdentity.m").read_text()
-    preferences = (project / "RRRPreferences.m").read_text()
+    policy = (project / "Sources/RRRPolicy.m").read_text()
+    identity = (project / "Sources/RRRIdentity.m").read_text()
+    preferences = (project / "Sources/RRRPreferences.m").read_text()
     assert "RRRValidBundleID" in policy
     assert "RRRNeverPreserveBundleID" in policy
     assert "RRRPreferencesSnapshot" in policy
     assert "[object valueForKey:" not in identity
     assert "respondsToSelector:selector" in identity
-    assert "#import \"RRRPolicy.h\"" in (project / "RRRPreferences.h").read_text()
+    assert "#import \"RRRPolicy.h\"" in (project / "Sources/RRRPreferences.h").read_text()
     assert "performSelector:@selector(defaultWorkspace)" in preferences
     assert "respondsToSelector:@selector(allApplications)" in preferences
     assert "respondsToSelector:@selector(bundleIdentifier)" in preferences
     assert "@catch (__unused NSException *exception)" in preferences
     assert "freshUniverse.count > 0 ? freshUniverse : RRRStoredAppUniverse(current)" in preferences
-    assert "/tmp/roadrunnerreborn-survivors.plist" not in (project / "RRRSurvivors.m").read_text()
-    survivors = (project / "RRRSurvivors.m").read_text()
+    assert "/tmp/roadrunnerreborn-survivors.plist" not in (project / "Sources/RRRSurvivors.m").read_text()
+    survivors = (project / "Sources/RRRSurvivors.m").read_text()
     assert "O_EXCL | O_NOFOLLOW" in survivors
     assert "for (NSString *payloadPath in RRRSurvivorPaths())" in survivors
     assert "0600" in survivors and "fsync(fd)" in survivors
     assert '"revision"' in survivors
-    assert "RRRSurvivorsFilePath" in (project / "RRRSurvivors.h").read_text()
+    assert "RRRSurvivorsFilePath" in (project / "Sources/RRRSurvivors.h").read_text()
 
     root = plistlib.loads((project / "Preferences/Resources/Root.plist").read_bytes())
     app_row = next(item for item in root["items"] if item.get("id") == "listedApps")
@@ -115,6 +116,7 @@ def main():
 
     makefile = (project / "Makefile").read_text()
     assert "TWEAK_NAME += RoadRunnerRebornDaemon" in makefile
+    assert "Sources/Tweak.xm" in makefile
     assert "RRRPolicy.m" in makefile
     assert "RoadRunnerRebornDaemon_FILES" in makefile
     assert "RRRRunningBoard.xm" in makefile and "RRRSpringBoard.xm" in makefile
@@ -124,8 +126,8 @@ def main():
     daemon_filter = (project / "RoadRunnerRebornDaemon.plist").read_text()
     assert "com.apple.springboard" in sb_filter and "runningboardd" not in sb_filter
     assert "runningboardd" in daemon_filter and "com.apple.springboard" not in daemon_filter
-    assert "RRRReplaceSurvivorRecords" in (project / "RRRSurvivors.h").read_text()
-    assert "RRRNeverPreserveBundleID" in (project / "RRRPreferences.h").read_text()
+    assert "RRRReplaceSurvivorRecords" in (project / "Sources/RRRSurvivors.h").read_text()
+    assert "RRRNeverPreserveBundleID" in (project / "Sources/RRRPreferences.h").read_text()
     for icon in ("icon_github.png", "icon_kofi.png", "icon_x.png", "icon_instagram.png", "icon_youtube.png"):
         assert (project / "Preferences/Resources" / icon).stat().st_size > 0
 

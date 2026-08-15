@@ -51,12 +51,7 @@ Dependencies:
 
 | Path | Purpose |
 |---|---|
-| `Tweak.xm` | SpringBoard entry and media eligibility hook |
-| `RRRRunningBoard.xm` | RunningBoard termination boundary (daemon dylib) |
-| `RRRSpringBoard.xm` | Media tracking, survivor restoration, and FrontBoard reattachment |
-| `RRRPreferences.*` | Validated settings, never-preserve policy, and live notification handling |
-| `RRRState.*` | Persistent Now Playing state |
-| `RRRSurvivors.*` | Generation-stamped root and hosted-child records |
+| `Sources/` | Tweak, daemon, and shared policy/survivor sources (`Tweak.xm`, `RRR*.m/.h/.xm`) |
 | `RoadRunnerReborn.plist` | Filter: SpringBoard dylib loads only into SpringBoard |
 | `RoadRunnerRebornDaemon.plist` | Filter: daemon dylib loads only into `runningboardd` |
 | `Preferences/` | PreferenceLoader and AltList settings bundle |
