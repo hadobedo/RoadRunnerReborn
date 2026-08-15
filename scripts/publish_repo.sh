@@ -33,10 +33,12 @@ render_depiction() {
     --github-repository 'hadobedo/RoadRunnerReborn' \
     --release-notes "$source_root/.github/RELEASE_NOTES.md"
 }
-render_depiction "$repo_root/depictions"
+# Dev publishes must not overwrite the stable depiction: render into the
+# dev subdirectory and point the dev package index at it.
 if [ "$FEED_DIR" != "$repo_root" ]; then
-    cp "$repo_root/depictions/$package.json" "$FEED_DIR/depictions/"
-    cp "$repo_root/depictions/$package.html" "$FEED_DIR/depictions/"
+    render_depiction "$FEED_DIR/depictions"
+else
+    render_depiction "$repo_root/depictions"
 fi
 
 # Keep the existing dotto++ depiction counters current when this feed is
@@ -55,9 +57,26 @@ write_index() {
     local directory=$1
     local architectures=$2
     local codename=$3
+    local dev_depictions=${4:-}
     (
         cd "$directory"
         dpkg-scanpackages -m debs /dev/null > Packages
+        if [ -n "$dev_depictions" ]; then
+            python3 -c '
+import sys
+package = sys.argv[1]
+blocks = open("Packages").read().split("\n\n")
+out = []
+for block in blocks:
+    if block.startswith("Package: " + package + "\n"):
+        block = block.replace(
+            "https://hadobedo.github.io/repo/depictions/",
+            "https://hadobedo.github.io/repo/dev/depictions/",
+        )
+    out.append(block)
+open("Packages", "w").write("\n\n".join(out))
+' "$package"
+        fi
         gzip -9c Packages > Packages.gz
         xz -9c Packages > Packages.xz
         {
@@ -80,9 +99,15 @@ write_index() {
     )
 }
 
-write_index "$FEED_DIR" 'iphoneos-arm64 iphoneos-arm64e' stable
-write_index "$FEED_DIR/rootless" iphoneos-arm64 rootless
-write_index "$FEED_DIR/roothide" iphoneos-arm64e roothide
+if [ "$FEED_DIR" != "$repo_root" ]; then
+    write_index "$FEED_DIR" 'iphoneos-arm64 iphoneos-arm64e' stable dev
+    write_index "$FEED_DIR/rootless" iphoneos-arm64 rootless dev
+    write_index "$FEED_DIR/roothide" iphoneos-arm64e roothide dev
+else
+    write_index "$FEED_DIR" 'iphoneos-arm64 iphoneos-arm64e' stable
+    write_index "$FEED_DIR/rootless" iphoneos-arm64 rootless
+    write_index "$FEED_DIR/roothide" iphoneos-arm64e roothide
+fi
 
 sha256sum "$FEED_DIR/rootless/debs/$(basename "$ROOTLESS_DEB")" > "$FEED_DIR/rootless/SHA256SUMS"
 sha256sum "$FEED_DIR/roothide/debs/$(basename "$ROOTHIDE_DEB")" > "$FEED_DIR/roothide/SHA256SUMS"

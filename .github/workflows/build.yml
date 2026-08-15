@@ -52,8 +52,11 @@ jobs:
           - scheme: rootless
             archs: "arm64 arm64e"
             expected_arch: iphoneos-arm64
+          # Universal binaries in both variants: A11 devices (iPhone 8/X)
+          # execute arm64 only and reject arm64e-only Mach-Os. The deb keeps
+          # the iphoneos-arm64e architecture field.
           - scheme: roothide
-            archs: arm64e
+            archs: "arm64 arm64e"
             expected_arch: iphoneos-arm64e
     steps:
       - name: Check out source

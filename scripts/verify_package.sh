@@ -72,37 +72,29 @@ fi
 test -n "$otool_bin" || { echo 'otool is required for Mach-O validation' >&2; exit 1; }
 test -n "$lipo_bin" || { echo 'lipo is required for Mach-O validation' >&2; exit 1; }
 
+# Every shipped Mach-O must carry both slices: A11 devices (iPhone 8/X)
+# execute arm64 only and reject arm64e-only binaries ("have 'arm64e', need
+# 'arm64'"), while A12+ loads the arm64e slice. The package Architecture
+# field is independent of the slices: the RootHide Theos scheme module
+# forces the roothide deb to iphoneos-arm64e regardless of the binaries.
 require_architecture() {
     local file_path=$1
-    local expected=$2
-    local description=$3
+    local description=$2
     local architectures
     architectures=$("$lipo_bin" -archs "$file_path")
-    case "$expected" in
-        iphoneos-arm64)
-            printf '%s\n' "$architectures" | grep -E '(^|[[:space:]])arm64([[:space:]]|$)' >/dev/null || return 1
-            printf '%s\n' "$architectures" | grep -E '(^|[[:space:]])arm64e([[:space:]]|$)' >/dev/null || return 1
-            local headers
-            headers=$("$otool_bin" -hv -arch arm64 "$file_path")
-            printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+ALL[[:space:]]+' >/dev/null || return 1
-            headers=$("$otool_bin" -hv -arch arm64e "$file_path")
-            printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+E[[:space:]]+' >/dev/null || return 1
-            return 0
-            ;;
-        iphoneos-arm64e)
-            test "$architectures" = arm64e || return 1
-            local headers
-            headers=$("$otool_bin" -hv -arch arm64e "$file_path")
-            printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+E[[:space:]]+' >/dev/null || return 1
-            return 0
-            ;;
+    case "$architectures" in
+        "arm64 arm64e") ;;
+        *) echo "$description has unexpected architectures: $architectures" >&2; return 1 ;;
     esac
-    echo "$description has unexpected architectures: $architectures" >&2
-    return 1
+    local headers
+    headers=$("$otool_bin" -hv -arch arm64 "$file_path")
+    printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+ALL[[:space:]]+' >/dev/null || return 1
+    headers=$("$otool_bin" -hv -arch arm64e "$file_path")
+    printf '%s\n' "$headers" | grep -E 'ARM64[[:space:]]+E[[:space:]]+' >/dev/null || return 1
 }
-require_architecture "$dylib" "$EXPECTED_ARCH" RoadRunnerReborn
-require_architecture "$daemon_dylib" "$EXPECTED_ARCH" RoadRunnerRebornDaemon
-require_architecture "$prefs" "$EXPECTED_ARCH" RoadRunnerRebornPrefs
+require_architecture "$dylib" RoadRunnerReborn
+require_architecture "$daemon_dylib" RoadRunnerRebornDaemon
+require_architecture "$prefs" RoadRunnerRebornPrefs
 
 strings "$dylib" "$daemon_dylib" "$prefs" | grep -E 'RocketBootstrap|AppList\.framework|RBProcessManager.*executeTerminateRequest|RBSXPCMessage|posix_spawn|posix_spawnp|killpg' && {
     echo 'prohibited runtime reference found' >&2

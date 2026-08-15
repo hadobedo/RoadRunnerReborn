@@ -88,10 +88,14 @@ make clean package \
 THEOS=/path/to/roothide-theos \
 make clean package \
   THEOS_PACKAGE_SCHEME=roothide \
-  ARCHS="arm64e" \
+  ARCHS="arm64 arm64e" \
   FINALPACKAGE=1 \
   PACKAGE_VERSION=1.1.1
 ```
+
+Both packages ship universal `arm64 + arm64e` binaries: the arm64e slice loads
+on A12+ devices and the arm64 slice on A11 devices (iPhone 8/X). The RootHide
+deb keeps the `iphoneos-arm64e` architecture field.
 
 ## License and credits
 

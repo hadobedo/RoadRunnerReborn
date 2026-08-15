@@ -2,6 +2,12 @@ TARGET := iphone:clang:latest:15.0
 # Default to rootless; override THEOS_PACKAGE_SCHEME=roothide for roothide builds.
 THEOS_PACKAGE_SCHEME ?= rootless
 ARCHS ?= arm64 arm64e
+# Every shipped binary must carry an arm64 slice: A11 devices (iPhone 8/X)
+# execute arm64 only and reject arm64e-only Mach-Os ("have 'arm64e', need
+# 'arm64'"). Rejects command-line ARCHS=arm64e overrides.
+ifeq ($(filter arm64,$(ARCHS)),)
+$(error ARCHS must include arm64 for A11 device support)
+endif
 SUBPROJECTS += Preferences
 
 # RootHide's macOS toolchain needs ad-hoc codesigning for injected binaries.

@@ -42,8 +42,12 @@ def arguments():
 def counters(page_id: str, repository: str) -> tuple[str, str]:
     page = html.escape(page_id, quote=True)
     repo = html.escape(repository, quote=True)
+    # Cumulative counters. The laobi visitor badge is keyed solely by
+    # page_id, which must never change or the count restarts. GitHub
+    # /total sums the assets of every release (all versions, rootless +
+    # RootHide), unlike /latest/total which only counts the newest one.
     visits = f"https://visitor-badge.laobi.icu/badge?page_id={page}"
-    downloads = f"https://img.shields.io/github/downloads/{repo}/latest/total?label=GitHub%20downloads"
+    downloads = f"https://img.shields.io/github/downloads/{repo}/total?label=Downloads&color=4d9aff"
     return visits, downloads
 
 
@@ -120,7 +124,7 @@ def render_sileo(version: str, package: str, visits: str, downloads: str, change
             {"class": "DepictionHeaderView", "title": "Usage"},
             {
                 "class": "DepictionMarkdownView",
-                "markdown": f"![Visits]({visits})  ![GitHub downloads]({downloads})",
+                "markdown": f"![Visits]({visits})  ![Downloads]({downloads})",
                 "useSpacing": True,
             },
         ]
@@ -194,7 +198,7 @@ def render_html(name: str, version: str, package: str, base_url: str, visits: st
     <section class="card"><h2>Changelog</h2><p class="version">{html.escape(version)}</p><ul>{changelog}</ul></section>
     <section class="card"><h2>Links</h2><div class="links">{links}</div></section>
     <section class="card"><h2>Information</h2><ul>{information}</ul></section>
-    <section class="card"><h2>Usage</h2><div class="stats"><img src="{visits}" alt="Visits"><img src="{downloads}" alt="GitHub downloads"></div></section>
+    <section class="card"><h2>Usage</h2><div class="stats"><img src="{visits}" alt="Visits"><img src="{downloads}" alt="Downloads"></div></section>
     <footer>{html.escape(package)} · <a href="{source}/Packages">APT metadata</a></footer>
   </main>
 </body>

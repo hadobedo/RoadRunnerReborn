@@ -118,6 +118,8 @@ def main():
     assert "RRRPolicy.m" in makefile
     assert "RoadRunnerRebornDaemon_FILES" in makefile
     assert "RRRRunningBoard.xm" in makefile and "RRRSpringBoard.xm" in makefile
+    # A11 devices (iPhone 8/X) execute arm64 only; arm64e-only builds must be rejected.
+    assert '$(error ARCHS must include arm64' in makefile
     sb_filter = (project / "RoadRunnerReborn.plist").read_text()
     daemon_filter = (project / "RoadRunnerRebornDaemon.plist").read_text()
     assert "com.apple.springboard" in sb_filter and "runningboardd" not in sb_filter
@@ -130,11 +132,35 @@ def main():
     notes = project / ".github/RELEASE_NOTES.md"
     assert notes.exists()
     assert "from release_notes import validate" in (project / "scripts/render_repo_depiction.py").read_text()
+    depiction = (project / "scripts/render_repo_depiction.py").read_text()
+    # Counters are cumulative: GitHub /total sums every release's assets
+    # (all versions, rootless + RootHide) and the visitor badge is keyed
+    # only by the constant page-id.
+    assert "{repo}/latest/total" not in depiction
+    assert 'github/downloads/{repo}/total?label=Downloads' in depiction
+    assert 'badge?page_id={page}' in depiction
     assert "--release-notes" in (project / "scripts/publish_repo.sh").read_text()
+    publish_script = (project / "scripts/publish_repo.sh").read_text()
+    # Dev publishes render into the dev subdirectory and rewrite the dev
+    # package index to point at it; the stable depiction is only touched
+    # by stable publishes.
+    assert 'render_depiction "$FEED_DIR/depictions"' in publish_script
+    assert 'render_depiction "$repo_root/depictions"' in publish_script
+    assert 'cp "$repo_root/depictions/$package.json"' not in publish_script
+    assert 'https://hadobedo.github.io/repo/dev/depictions/' in publish_script
     assert "tests/**" in (project / ".github/workflows/build.yml").read_text()
     assert "tests/**" in (project / ".github/workflows/publish.yml").read_text()
+    # Both variants ship universal arm64 + arm64e binaries so A11 devices
+    # can load the package; the roothide deb keeps iphoneos-arm64e.
+    for workflow in (project / ".github/workflows/build.yml", project / ".github/workflows/publish.yml"):
+        workflow_text = workflow.read_text()
+        assert 'scheme: roothide\n            archs: "arm64 arm64e"' in workflow_text
+        assert 'expected_arch: iphoneos-arm64e' in workflow_text
     verify = (project / "scripts/verify_package.sh").read_text()
     assert "require_architecture" in verify
+    # Every shipped Mach-O must carry both slices, regardless of package arch.
+    assert '"arm64 arm64e")' in verify
+    assert 'test "$architectures" = arm64e' not in verify
     publish = (project / ".github/workflows/publish.yml").read_text()
     assert "ssh-keyscan" not in publish and "github.com ssh-ed25519" in publish
 
