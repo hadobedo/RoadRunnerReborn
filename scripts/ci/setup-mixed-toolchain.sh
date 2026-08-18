@@ -17,11 +17,20 @@ test -x "$clang_path" || { echo "missing host compiler: $clang_path" >&2; exit 1
 test -x "$clangxx_path" || { echo "missing host compiler: $clangxx_path" >&2; exit 1; }
 
 mixed_ld=${MIXED_LD:-}
+if [[ -z "$mixed_ld" && -d "$THEOS/toolchain" ]]; then
+    mixed_ld=$(find -L "$THEOS/toolchain" -type f -path '*/iphone/bin/ld' -perm -111 -print -quit || true)
+fi
+# RootHide Theos ships a downloaded Linux linker in the local mixed setup.
+# macOS runners use Xcode's native Mach-O linker instead; the cloned Theos
+# checkout intentionally does not contain a platform toolchain.
+if [[ -z "$mixed_ld" ]] && command -v xcrun >/dev/null 2>&1; then
+    mixed_ld=$(xcrun --sdk iphoneos --find ld 2>/dev/null || true)
+fi
 if [[ -z "$mixed_ld" ]]; then
-    mixed_ld=$(find -L "$THEOS/toolchain" -type f -path '*/iphone/bin/ld' -perm -111 -print -quit)
+    mixed_ld=$(command -v ld || true)
 fi
 test -n "$mixed_ld" && test -x "$mixed_ld" || {
-    echo "missing Theos Mach-O linker under $THEOS/toolchain" >&2
+    echo "missing a usable Mach-O linker" >&2
     exit 1
 }
 
