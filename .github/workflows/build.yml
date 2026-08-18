@@ -14,12 +14,10 @@ on:
       - 'control'
       - 'layout/**'
       - 'vendor/**'
-      - 'scripts/verify_package.sh'
-      - 'scripts/release_notes.py'
+      - 'scripts/**'
       - '.github/RELEASE_NOTES.md'
       - 'tests/**'
-      - '.github/workflows/build.yml'
-      - '.github/workflows/build-package.yml'
+      - '.github/workflows/**'
   pull_request:
     paths:
       - '**/*.h'
@@ -30,12 +28,10 @@ on:
       - 'control'
       - 'layout/**'
       - 'vendor/**'
-      - 'scripts/verify_package.sh'
-      - 'scripts/release_notes.py'
+      - 'scripts/**'
       - '.github/RELEASE_NOTES.md'
       - 'tests/**'
-      - '.github/workflows/build.yml'
-      - '.github/workflows/build-package.yml'
+      - '.github/workflows/**'
   workflow_dispatch:
 
 permissions:

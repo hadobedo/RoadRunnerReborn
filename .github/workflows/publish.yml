@@ -15,14 +15,10 @@ on:
       - 'control'
       - 'layout/**'
       - 'vendor/**'
-      - 'scripts/verify_package.sh'
-      - 'scripts/release_notes.py'
-      - 'scripts/feed/publish_repo.sh'
-      - 'scripts/feed/depiction.py'
-      - '.github/workflows/publish.yml'
+      - 'scripts/**'
+      - '.github/workflows/**'
       - '.github/RELEASE_NOTES.md'
       - 'tests/**'
-      - '.github/workflows/build-package.yml'
   workflow_dispatch:
 
 permissions:

@@ -155,6 +155,8 @@ def main():
     assert '"rewrite-dev"' in depiction and '"counters"' in depiction and '"render"' in depiction
     assert "tests/**" in (project / ".github/workflows/build.yml").read_text()
     assert "tests/**" in (project / ".github/workflows/publish.yml").read_text()
+    assert "scripts/**" in (project / ".github/workflows/build.yml").read_text()
+    assert "scripts/**" in (project / ".github/workflows/publish.yml").read_text()
     # The build matrix lives in one reusable workflow that both CI and
     # publish call. Both variants ship universal arm64 + arm64e binaries
     # so A11 devices can load the package; the roothide deb keeps
@@ -162,17 +164,26 @@ def main():
     build_package = (project / ".github/workflows/build-package.yml").read_text()
     assert 'scheme: roothide\n            archs: "arm64 arm64e"' in build_package
     assert 'expected_arch: iphoneos-arm64e' in build_package
+    assert 'MIXED_LLVM_VERSION: 22.1.8' in build_package
+    assert 'scripts/ci/setup-mixed-toolchain.sh' in build_package
+    assert "Smoke-check shell and Python tooling" in build_package
     for workflow in (project / ".github/workflows/build.yml", project / ".github/workflows/publish.yml"):
         assert 'uses: ./.github/workflows/build-package.yml' in workflow.read_text()
     # Local tooling: build wrapper and release prep script exist and run.
     for script in ("build.sh", "release.sh"):
         path = project / "scripts" / script
         assert path.exists() and (path.stat().st_mode & 0o111)
+    for script in ("cc-mixed.sh", "cxx-mixed.sh", "setup-mixed-toolchain.sh"):
+        path = project / "scripts/ci" / script
+        assert path.exists() and (path.stat().st_mode & 0o111)
     assert "ARCHS='arm64 arm64e'" in (project / "scripts/build.sh").read_text()
     # The shipped contract test is tracked and must not be gitignored.
     assert 'tests/' not in (project / ".gitignore").read_text()
     verify = (project / "scripts/verify_package.sh").read_text()
+    assert "tests/verify_macho.py" in verify
     assert "require_architecture" in verify
+    macho = (project / "tests/verify_macho.py").read_text()
+    assert "CPU_SUBTYPE_ARM64E_PAC00 = 0x80000002" in macho
     # Every shipped Mach-O must carry both slices, regardless of package arch.
     assert '"arm64 arm64e")' in verify
     assert 'test "$architectures" = arm64e' not in verify

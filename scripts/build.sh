@@ -5,7 +5,8 @@
 # through the environment if needed; defaults target this machine.
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+project_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$project_root"
 
 scheme=${1:-rootless}
 case "$scheme" in
@@ -15,10 +16,22 @@ esac
 
 : "${PACKAGE_VERSION:=$(awk '$1 == "Version:" && NF == 2 { print $2 }' control)}"
 
-export TARGET_CC=${TARGET_CC:-/home/nick/Documents/iOS/cc-mixed}
-export TARGET_CXX=${TARGET_CXX:-/home/nick/Documents/iOS/cxx-mixed}
-export TARGET_LD=${TARGET_LD:-/home/nick/Documents/iOS/cxx-mixed}
 export THEOS=${THEOS:-/home/nick/roothide-theos}
+
+# The host compiler supplies the arm64e/PAC00 ABI; Theos supplies the iOS
+# SDK and Mach-O linker. Callers may still override any TARGET_* variable.
+if [[ -z "${TARGET_CC:-}" || -z "${TARGET_CXX:-}" || -z "${TARGET_LD:-}" ]]; then
+    export MIXED_CLANG=${MIXED_CLANG:-$(command -v clang)}
+    export MIXED_CLANGXX=${MIXED_CLANGXX:-$(command -v clang++)}
+    export MIXED_LD=${MIXED_LD:-$(find -L "$THEOS/toolchain" -type f -path '*/iphone/bin/ld' -perm -111 -print -quit)}
+    test -n "$MIXED_CLANG" -a -x "$MIXED_CLANG"
+    test -n "$MIXED_CLANGXX" -a -x "$MIXED_CLANGXX"
+    test -n "$MIXED_LD" -a -x "$MIXED_LD"
+fi
+
+export TARGET_CC=${TARGET_CC:-"$project_root/scripts/ci/cc-mixed.sh"}
+export TARGET_CXX=${TARGET_CXX:-"$project_root/scripts/ci/cxx-mixed.sh"}
+export TARGET_LD=${TARGET_LD:-"$project_root/scripts/ci/cxx-mixed.sh"}
 export THEOS_PACKAGE_SCHEME=$scheme
 
 # ARCHS carries both slices for every scheme: A11 devices (iPhone 8/X)

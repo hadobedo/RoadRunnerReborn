@@ -61,6 +61,10 @@ daemon_dylib=$(find "$tmp/data" -name RoadRunnerRebornDaemon.dylib -type f -prin
 prefs=$(find "$tmp/data" -name RoadRunnerRebornPrefs -type f -print -quit)
 test -n "$dylib" -a -n "$daemon_dylib" -a -n "$prefs"
 
+# The cpusubtype check below proves the arm64e slice is the versioned
+# pointer-authentication ABI (PAC00), not merely an arm64e-named slice.
+python3 tests/verify_macho.py "$dylib" "$daemon_dylib" "$prefs"
+
 otool_bin=${OTOOL:-$(command -v otool || true)}
 if [ -z "$otool_bin" ] && [ -n "${THEOS:-}" ] && [ -x "$THEOS/toolchain/linux/iphone/bin/otool" ]; then
     otool_bin="$THEOS/toolchain/linux/iphone/bin/otool"

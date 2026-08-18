@@ -58,6 +58,7 @@ Dependencies:
 | `layout/` | Package scripts, including Sileo userspace-reboot handling |
 | `vendor/` | Project-owned AltList linker metadata and public header |
 | `scripts/` | Package validation, feed publication, and depiction generation |
+| `scripts/ci/` | Portable mixed-toolchain setup and CI compiler wrappers |
 | `.github/workflows/` | Build, development-feed, and release automation |
 
 ## Build
@@ -90,6 +91,11 @@ make clean package \
 Both packages ship universal `arm64 + arm64e` binaries: the arm64e slice loads
 on A12+ devices and the arm64 slice on A11 devices (iPhone 8/X). The RootHide
 deb keeps the `iphoneos-arm64e` architecture field.
+
+For local builds, use `scripts/build.sh rootless` or
+`scripts/build.sh roothide`. These use the host LLVM compiler with the RootHide
+Theos Mach-O linker so the arm64e slice carries the PAC00 ABI. CI provisions the
+same mixed-toolchain contract and verifies all shipped Mach-O files.
 
 ## License and credits
 

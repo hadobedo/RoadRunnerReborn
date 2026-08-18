@@ -16,6 +16,7 @@ permissions:
 
 env:
   ROOTHIDE_THEOS_COMMIT: 88506b2c22e9e07dd4ed055f23c9e398a117a2c7
+  MIXED_LLVM_VERSION: 22.1.8
 
 jobs:
   build:
@@ -40,6 +41,39 @@ jobs:
       - name: Run contract test
         run: python3 tests/test_roadrunnerreborn_contract.py
 
+      - name: Smoke-check shell and Python tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r -d '' script; do
+            bash -n "$script"
+          done < <(find scripts -type f -name '*.sh' -print0)
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for path in [*Path('scripts').rglob('*.py'), *Path('tests').rglob('*.py')]:
+              compile(path.read_text(encoding='utf-8'), str(path), 'exec')
+          print('Python syntax checks passed')
+          PY
+          version=$(awk '$1 == "Version:" && NF == 2 { print $2 }' control)
+          python3 scripts/release_notes.py .github/RELEASE_NOTES.md --expected-version "$version"
+
+      - name: Install host LLVM
+        shell: bash
+        run: |
+          set -euo pipefail
+          brew install llvm
+          llvm_bin="$(brew --prefix llvm)/bin"
+          version="$($llvm_bin/clang --version | head -n 1)"
+          case "$version" in
+            *"$MIXED_LLVM_VERSION"*) ;;
+            *)
+              echo "expected host LLVM $MIXED_LLVM_VERSION, got: $version" >&2
+              exit 1
+              ;;
+          esac
+          printf 'MIXED_LLVM_BIN=%s\n' "$llvm_bin" >> "$GITHUB_ENV"
+
       - name: Install RootHide Theos
         shell: bash
         env:
@@ -52,9 +86,20 @@ jobs:
           printf 'THEOS=%s\n' "$THEOS" >> "$GITHUB_ENV"
           test "$(git -C "$THEOS" rev-parse HEAD)" = "$ROOTHIDE_THEOS_COMMIT"
 
-      - name: Build ${{ matrix.scheme }} package
+      - name: Configure mixed toolchain
+        shell: bash
         run: |
-          make clean package FINALPACKAGE=1 \
+          set -euo pipefail
+          toolchain_env="$RUNNER_TEMP/roadrunner-toolchain.env"
+          scripts/ci/setup-mixed-toolchain.sh > "$toolchain_env"
+          cat "$toolchain_env" >> "$GITHUB_ENV"
+          cat "$toolchain_env"
+
+      - name: Build ${{ matrix.scheme }} package
+        env:
+          ABI_SUFFIX: ''
+        run: |
+          make clean package FINALPACKAGE=1 DEBUG=0 \
             THEOS_PACKAGE_SCHEME=${{ matrix.scheme }} \
             ARCHS="${{ matrix.archs }}" \
             PACKAGE_VERSION="${{ inputs.package_version }}"
