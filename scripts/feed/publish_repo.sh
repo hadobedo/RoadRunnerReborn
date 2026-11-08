@@ -65,7 +65,17 @@ write_index() {
             python3 "$source_root/scripts/feed/depiction.py" rewrite-dev "$package" Packages
         fi
         gzip -9c Packages > Packages.gz
+        bzip2 -9c Packages > Packages.bz2
         xz -9c Packages > Packages.xz
+        # Drop any other Packages.* variant so a stale index can never be served
+        # alongside a freshly generated Packages.
+        for stale in Packages.*; do
+            case "$stale" in
+                Packages.gz|Packages.bz2|Packages.xz) ;;
+                *) rm -f "$stale" ;;
+            esac
+        done
+        variants='Packages Packages.gz Packages.bz2 Packages.xz'
         {
             printf 'Origin: Nicks Works\n'
             printf 'Label: Nicks Works\n'
@@ -74,14 +84,19 @@ write_index() {
             printf 'Architectures: %s\n' "$architectures"
             printf 'Components: main\n'
             printf 'Description: Nicks Works jailbreak tweaks\n'
+            printf 'Date: %s\n' "$(date -Ru)"
             printf 'MD5Sum:\n'
             while read -r hash file; do
                 printf ' %s %s %s\n' "$hash" "$(stat -c '%s' "$file" 2>/dev/null || stat -f '%z' "$file")" "$file"
-            done < <(md5sum Packages Packages.gz Packages.xz)
+            done < <(md5sum $variants)
+            printf 'SHA1:\n'
+            while read -r hash file; do
+                printf ' %s %s %s\n' "$hash" "$(stat -c '%s' "$file" 2>/dev/null || stat -f '%z' "$file")" "$file"
+            done < <(sha1sum $variants)
             printf 'SHA256:\n'
             while read -r hash file; do
                 printf ' %s %s %s\n' "$hash" "$(stat -c '%s' "$file" 2>/dev/null || stat -f '%z' "$file")" "$file"
-            done < <(sha256sum Packages Packages.gz Packages.xz)
+            done < <(sha256sum $variants)
         } > Release
     )
 }

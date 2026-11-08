@@ -43,6 +43,8 @@ grep -F 'Depends: ' "$control_file" | grep -F 'preferenceloader' >/dev/null
 grep -F 'Depends: ' "$control_file" | grep -F 'com.opa334.altlist' >/dev/null
 grep -F 'Conflicts: ' "$control_file" | grep -F 'com.nick.keepthepartygoing' >/dev/null
 grep -F 'Replaces: ' "$control_file" | grep -F 'com.nick.keepthepartygoing' >/dev/null
+grep -F 'Conflicts: ' "$control_file" | grep -F 'com.nicksworks.probrainrot' >/dev/null
+grep -F 'Replaces: ' "$control_file" | grep -F 'com.nicksworks.probrainrot' >/dev/null
 grep -F 'Homepage: https://github.com/hadobedo/RoadRunnerReborn' "$control_file" >/dev/null
 grep -F 'SileoDepiction: https://hadobedo.github.io/repo/depictions/com.nicksworks.roadrunnerreborn.json' "$control_file" >/dev/null
 grep -F 'Depiction: https://hadobedo.github.io/repo/depictions/com.nicksworks.roadrunnerreborn.html' "$control_file" >/dev/null
@@ -58,12 +60,14 @@ fi
 
 dylib=$(find "$tmp/data" -name RoadRunnerReborn.dylib -type f -print -quit)
 daemon_dylib=$(find "$tmp/data" -name RoadRunnerRebornDaemon.dylib -type f -print -quit)
+audio_dylib=$(find "$tmp/data" -name RoadRunnerRebornAudio.dylib -type f -print -quit)
+audio_server_dylib=$(find "$tmp/data" -name RoadRunnerRebornAudioServer.dylib -type f -print -quit)
 prefs=$(find "$tmp/data" -name RoadRunnerRebornPrefs -type f -print -quit)
-test -n "$dylib" -a -n "$daemon_dylib" -a -n "$prefs"
+test -n "$dylib" -a -n "$daemon_dylib" -a -n "$audio_dylib" -a -n "$audio_server_dylib" -a -n "$prefs"
 
 # The cpusubtype check below proves the arm64e slice is the versioned
 # pointer-authentication ABI (PAC00), not merely an arm64e-named slice.
-python3 tests/verify_macho.py "$dylib" "$daemon_dylib" "$prefs"
+python3 tests/verify_macho.py "$dylib" "$daemon_dylib" "$audio_dylib" "$audio_server_dylib" "$prefs"
 
 otool_bin=${OTOOL:-$(command -v otool || true)}
 if [ -z "$otool_bin" ] && [ -n "${THEOS:-}" ] && [ -x "$THEOS/toolchain/linux/iphone/bin/otool" ]; then
@@ -98,9 +102,11 @@ require_architecture() {
 }
 require_architecture "$dylib" RoadRunnerReborn
 require_architecture "$daemon_dylib" RoadRunnerRebornDaemon
+require_architecture "$audio_dylib" RoadRunnerRebornAudio
+require_architecture "$audio_server_dylib" RoadRunnerRebornAudioServer
 require_architecture "$prefs" RoadRunnerRebornPrefs
 
-strings "$dylib" "$daemon_dylib" "$prefs" | grep -E 'RocketBootstrap|AppList\.framework|RBProcessManager.*executeTerminateRequest|RBSXPCMessage|posix_spawn|posix_spawnp|killpg' && {
+strings "$dylib" "$daemon_dylib" "$audio_dylib" "$audio_server_dylib" "$prefs" | grep -E 'RocketBootstrap|AppList\.framework|RBProcessManager.*executeTerminateRequest|RBSXPCMessage|posix_spawn|posix_spawnp|killpg' && {
     echo 'prohibited runtime reference found' >&2
     exit 1
 } || true
@@ -113,16 +119,27 @@ if "$otool_bin" -L "$daemon_dylib" | grep -E 'UIKit|SpringBoard' >/dev/null; the
     echo 'daemon dylib must not reference UIKit/SpringBoard' >&2
     exit 1
 fi
+if "$otool_bin" -L "$audio_server_dylib" | grep -E 'UIKit|SpringBoard' >/dev/null; then
+    echo 'audio server dylib must not reference UIKit/SpringBoard' >&2
+    exit 1
+fi
 
 # Narrow filters: the SpringBoard dylib loads only into SpringBoard; the
 # daemon dylib only into runningboardd.
 sb_filter=$(find "$tmp/data" -path '*DynamicLibraries/RoadRunnerReborn.plist' -print -quit)
 daemon_filter=$(find "$tmp/data" -path '*DynamicLibraries/RoadRunnerRebornDaemon.plist' -print -quit)
-test -n "$sb_filter" -a -n "$daemon_filter"
+audio_filter=$(find "$tmp/data" -path '*DynamicLibraries/RoadRunnerRebornAudio.plist' -print -quit)
+audio_server_filter=$(find "$tmp/data" -path '*DynamicLibraries/RoadRunnerRebornAudioServer.plist' -print -quit)
+test -n "$sb_filter" -a -n "$daemon_filter" -a -n "$audio_filter" -a -n "$audio_server_filter"
 grep -F 'com.apple.springboard' "$sb_filter" >/dev/null
 ! grep -F 'runningboardd' "$sb_filter" >/dev/null
 grep -F 'runningboardd' "$daemon_filter" >/dev/null
 ! grep -F 'com.apple.springboard' "$daemon_filter" >/dev/null
+grep -F 'com.apple.UIKit' "$audio_filter" >/dev/null
+grep -F 'com.apple.audiomxd' "$audio_server_filter" >/dev/null
+grep -F 'audiomxd' "$audio_server_filter" >/dev/null
+grep -F 'com.apple.mediaserverd' "$audio_server_filter" >/dev/null
+grep -F 'mediaserverd' "$audio_server_filter" >/dev/null
 
 postinst="$tmp/control/postinst"
 postrm="$tmp/control/postrm"

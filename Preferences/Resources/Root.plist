@@ -73,6 +73,47 @@
 
   <dict>
    <key>cell</key><string>PSGroupCell</string>
+   <key>label</key><string>Audio</string>
+   <key>footerText</key><string>Whitelist allows only the selected apps to mix audio. Blacklist allows every third-party app except the selected apps. Both apps in a simultaneous playback pair should be allowed. Calls and recording sessions are excluded. After enabling this feature or changing its mode or app list, fully close and reopen every affected app for simultaneous audio to be applied.</string>
+  </dict>
+  <dict>
+   <key>cell</key><string>PSSwitchCell</string>
+   <key>default</key><false/>
+   <key>get</key><string>readPreferenceValue:</string>
+   <key>id</key><string>simultaneousAudioEnabled</string>
+   <key>key</key><string>simultaneousAudioEnabled</string>
+   <key>label</key><string>Allow Simultaneous Audio</string>
+   <key>set</key><string>setPreferenceValue:specifier:</string>
+  </dict>
+  <dict>
+   <key>cell</key><string>PSLinkCell</string>
+   <key>cellClass</key><string>RRRModeSegmentCell</string>
+   <key>default</key><true/>
+   <key>enabled</key><false/>
+   <key>get</key><string>readPreferenceValue:</string>
+   <key>id</key><string>audioIsWhitelist</string>
+   <key>key</key><string>audioIsWhitelist</string>
+   <key>label</key><string>Audio Mode</string>
+   <key>set</key><string>setPreferenceValue:specifier:</string>
+   <key>validTitles</key><array><string>Whitelist</string><string>Blacklist</string></array>
+   <key>validValues</key><array><true/><false/></array>
+  </dict>
+  <dict>
+   <key>cell</key><string>PSLinkCell</string>
+   <key>detail</key><string>RRRAudioApplicationListController</string>
+   <key>id</key><string>audioListedApps</string>
+   <key>includeIdentifiersInSearch</key><true/>
+   <key>defaultApplicationSwitchValue</key><false/>
+   <key>label</key><string>Allow Applications</string>
+   <key>sections</key>
+   <array>
+    <dict><key>sectionType</key><string>User</string></dict>
+   </array>
+   <key>useSearchBar</key><true/>
+  </dict>
+
+  <dict>
+   <key>cell</key><string>PSGroupCell</string>
    <key>label</key><string>Advanced</string>
   </dict>
   <dict>

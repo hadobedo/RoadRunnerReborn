@@ -13,7 +13,10 @@
 RoadRunner Reborn is a revival of the original
 [RoadRunner](https://github.com/Nosskirneh/RoadRunner) tweak, which keeps the
 current Now Playing application, and optionally user-defined applications on a
-whitelist/blacklist alive through `sbreload` and SpringBoard resprings.
+whitelist/blacklist alive through `sbreload` and SpringBoard resprings. Its
+optional **Allow Simultaneous Audio** mode also prevents eligible third-party
+media apps from interrupting one another while preserving native Now Playing
+controls. A separate whitelist or blacklist controls which apps may mix audio.
 
 ## Compatibility
 
@@ -54,6 +57,8 @@ Dependencies:
 | `Sources/` | Tweak, daemon, and shared policy/survivor sources (`Tweak.xm`, `RRR*.m/.h/.xm`) |
 | `RoadRunnerReborn.plist` | Filter: SpringBoard dylib loads only into SpringBoard |
 | `RoadRunnerRebornDaemon.plist` | Filter: daemon dylib loads only into `runningboardd` |
+| `RoadRunnerRebornAudio.plist` | Filter: optional client audio policy loads with UIKit apps |
+| `RoadRunnerRebornAudioServer.plist` | Filter: optional server audio policy loads into `audiomxd`/`mediaserverd` |
 | `Preferences/` | PreferenceLoader and AltList settings bundle |
 | `layout/` | Package scripts, including Sileo userspace-reboot handling |
 | `vendor/` | Project-owned AltList linker metadata and public header |
@@ -74,7 +79,7 @@ make clean package \
   THEOS_PACKAGE_SCHEME=rootless \
   ARCHS="arm64 arm64e" \
   FINALPACKAGE=1 \
-  PACKAGE_VERSION=1.1.2
+  PACKAGE_VERSION=1.2.0
 ```
 
 ### RootHide
@@ -85,7 +90,7 @@ make clean package \
   THEOS_PACKAGE_SCHEME=roothide \
   ARCHS="arm64 arm64e" \
   FINALPACKAGE=1 \
-  PACKAGE_VERSION=1.1.2
+  PACKAGE_VERSION=1.2.0
 ```
 
 Both packages ship universal `arm64 + arm64e` binaries: the arm64e slice loads

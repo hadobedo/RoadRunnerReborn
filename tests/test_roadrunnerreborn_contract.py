@@ -92,6 +92,17 @@ def main():
     assert enabled_row["cell"] == "PSSwitchCell" and enabled_row["default"] is True
     other_apps_footer = next(item for item in root["items"] if item.get("label") == "Other Apps")["footerText"]
     assert "Whitelist" in other_apps_footer and "Blacklist" in other_apps_footer
+    audio_row = next(item for item in root["items"] if item.get("id") == "simultaneousAudioEnabled")
+    assert audio_row["cell"] == "PSSwitchCell" and audio_row["default"] is False
+    assert audio_row["label"] == "Allow Simultaneous Audio"
+    audio_mode = next(item for item in root["items"] if item.get("id") == "audioIsWhitelist")
+    assert audio_mode["default"] is True
+    assert audio_mode["validTitles"] == ["Whitelist", "Blacklist"]
+    audio_apps = next(item for item in root["items"] if item.get("id") == "audioListedApps")
+    assert audio_apps["detail"] == "RRRAudioApplicationListController"
+    audio_footer = next(item for item in root["items"] if item.get("label") == "Audio")["footerText"]
+    assert "Whitelist" in audio_footer and "Blacklist" in audio_footer and "recording" in audio_footer
+    assert "fully close and reopen every affected app" in audio_footer
     assert "loggingEnabled" not in [item.get("id") for item in root["items"]]
     advanced_row = next(item for item in root["items"] if item.get("id") == "advancedMenu")
     assert advanced_row["detail"] == "RRRAdvancedListController"
@@ -119,13 +130,36 @@ def main():
     assert "Sources/Tweak.xm" in makefile
     assert "RRRPolicy.m" in makefile
     assert "RoadRunnerRebornDaemon_FILES" in makefile
+    assert "RoadRunnerRebornAudio_FILES" in makefile
+    assert "RoadRunnerRebornAudioServer_FILES" in makefile
+    assert "RRRSimultaneousAudioClient.xm" in makefile
+    assert "RRRSimultaneousAudioServer.xm" in makefile
+    preferences_makefile = (project / "Preferences" / "Makefile").read_text()
+    assert "RRRAudioApplicationListController.m" in preferences_makefile
     assert "RRRRunningBoard.xm" in makefile and "RRRSpringBoard.xm" in makefile
     # A11 devices (iPhone 8/X) execute arm64 only; arm64e-only builds must be rejected.
     assert '$(error ARCHS must include arm64' in makefile
     sb_filter = (project / "RoadRunnerReborn.plist").read_text()
     daemon_filter = (project / "RoadRunnerRebornDaemon.plist").read_text()
+    audio_filter = (project / "RoadRunnerRebornAudio.plist").read_text()
+    audio_server_filter = (project / "RoadRunnerRebornAudioServer.plist").read_text()
     assert "com.apple.springboard" in sb_filter and "runningboardd" not in sb_filter
     assert "runningboardd" in daemon_filter and "com.apple.springboard" not in daemon_filter
+    assert "com.apple.UIKit" in audio_filter
+    assert "com.apple.audiomxd" in audio_server_filter and "audiomxd" in audio_server_filter
+    assert "com.apple.mediaserverd" in audio_server_filter and "mediaserverd" in audio_server_filter
+    assert "RRRPreferencesSimultaneousAudioKey" in preferences
+    assert "RRRPreferencesAudioWhitelistKey" in preferences
+    assert "RRRPreferencesAudioListedAppsKey" in preferences
+    assert "RRRAudioAllowsBundleIdentifier" in preferences
+    assert "? [value boolValue] : NO" in preferences
+    assert "? [value boolValue] : YES" in preferences
+    audio_client = (project / "Sources" / "RRRSimultaneousAudioClient.xm").read_text()
+    audio_server = (project / "Sources" / "RRRSimultaneousAudioServer.xm").read_text()
+    assert "RRRAudioAllowsBundleIdentifier" in audio_client
+    assert "RRRAudioAllowsBundleIdentifier" in audio_server
+    control = (project / "control").read_text()
+    assert "com.nicksworks.probrainrot" in control
     assert "RRRReplaceSurvivorRecords" in (project / "Sources/RRRSurvivors.h").read_text()
     assert "RRRNeverPreserveBundleID" in (project / "Sources/RRRPreferences.h").read_text()
     for icon in ("icon_github.png", "icon_kofi.png", "icon_x.png", "icon_instagram.png", "icon_youtube.png"):

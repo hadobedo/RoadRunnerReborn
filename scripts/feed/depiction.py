@@ -19,7 +19,7 @@ from release_notes import validate  # noqa: E402
 
 ABOUT_MARKDOWN = """**RoadRunner Reborn** makes your Now Playing app (and optionally other selected apps) stay alive through sbreload and resprings, keeping your music and other apps uninterrupted!
 
-Tested on iOS 15 - 17 rootless, **should** work on rootHide and iOS 18 and newer (fingers crossed)"""
+Supports iOS 15 and above, on rootless and RootHide jailbreaks."""
 
 COMPATIBILITY = "iOS 15+"
 FORMATS = "Rootless · RootHide"

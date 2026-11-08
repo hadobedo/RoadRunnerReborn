@@ -26,6 +26,22 @@ RoadRunnerReborn_CFLAGS = -fobjc-arc -Wno-vla-extension
 # Private symbols (MediaRemote constants, daemon classes) resolve at runtime
 RoadRunnerReborn_LDFLAGS = -undefined dynamic_lookup
 
+# Application-side audio policy: forces ordinary third-party playback sessions
+# to opt into mixing when the user enables Allow Simultaneous Audio.
+TWEAK_NAME += RoadRunnerRebornAudio
+RoadRunnerRebornAudio_FILES = Sources/RRRSimultaneousAudioClient.xm Sources/RRRPreferences.m Sources/RRRPolicy.m
+RoadRunnerRebornAudio_CFLAGS = -fobjc-arc
+RoadRunnerRebornAudio_FRAMEWORKS = Foundation AVFAudio
+RoadRunnerRebornAudio_LDFLAGS = -undefined dynamic_lookup
+
+# iOS audio-server policy: LongFormAudio cannot use the public mix option, so
+# audiomxd/mediaserverd marks eligible output sessions mixable at play time.
+TWEAK_NAME += RoadRunnerRebornAudioServer
+RoadRunnerRebornAudioServer_FILES = Sources/RRRSimultaneousAudioServer.xm Sources/RRRPreferences.m Sources/RRRPolicy.m
+RoadRunnerRebornAudioServer_CFLAGS = -fobjc-arc
+RoadRunnerRebornAudioServer_FRAMEWORKS = Foundation
+RoadRunnerRebornAudioServer_LDFLAGS = -undefined dynamic_lookup
+
 # runningboardd dylib: Foundation-only termination boundary. It is injected
 # into a critical daemon, so it contains no UIKit/SpringBoard code. A respring
 # cannot unload it; installing, updating, disabling, or removing requires a

@@ -190,6 +190,8 @@ jobs:
           xz -dc "$feed_check/Packages.xz" > "$feed_check/Packages-from-xz"
           cmp -s "$feed_check/Packages" "$feed_check/Packages-from-xz"
           grep -F 'Packages.xz' "$feed_check/Release" >/dev/null
+          grep -F 'Packages.gz' "$feed_check/Release" >/dev/null
+          grep -F 'Packages.bz2' "$feed_check/Release" >/dev/null
           grep -F 'Package: com.nicksworks.roadrunnerreborn' "$feed_check/Packages" >/dev/null
           grep -F "Version: $RELEASE_VERSION" "$feed_check/Packages" >/dev/null
           grep -F 'Package: com.nicksworks.roadrunnerreborn' "$feed_check/rootless-Packages" >/dev/null

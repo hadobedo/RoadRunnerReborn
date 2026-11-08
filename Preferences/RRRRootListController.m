@@ -7,12 +7,17 @@ static NSString *const RRRNowPlayingKey = @"preserveNowPlaying";
 static NSString *const RRROtherAppsKey = @"preserveOtherApps";
 static NSString *const RRRWhitelistKey = @"isWhitelist";
 static NSString *const RRRLoggingKey = @"loggingEnabled";
+static NSString *const RRRSimultaneousAudioKey = @"simultaneousAudioEnabled";
+static NSString *const RRRAudioWhitelistKey = @"audioIsWhitelist";
+static NSString *const RRRAudioListKey = @"audioListedApps";
 static NSString *const RRRListKey = @"listedApps";
 
 // The app-list row describes the effect of the list for the selected mode:
 // whitelist rows are preserved, blacklist rows are killed on respring.
 static NSString *const RRRWhitelistAppsTitle = @"Preserve Applications";
 static NSString *const RRRBlacklistAppsTitle = @"Kill Applications";
+static NSString *const RRRAudioWhitelistAppsTitle = @"Allow Applications";
+static NSString *const RRRAudioBlacklistAppsTitle = @"Exclude Applications";
 
 @implementation RRRRootListController
 
@@ -25,6 +30,7 @@ static NSString *const RRRBlacklistAppsTitle = @"Kill Applications";
             else if ([key isEqualToString:@"originalRoadRunner"]) [specifier setProperty:[self brandIconNamed:@"icon_github.png"] forKey:PSIconImageKey];
         }
         [self updateModeAvailability:NO];
+        [self updateAudioModeAvailability:NO];
         [self updateModeLabels];
     }
     return _specifiers;
@@ -37,6 +43,10 @@ static NSString *const RRRBlacklistAppsTitle = @"Kill Applications";
     RRRPreferencesSnapshot *settings = RRRPreferencesLoad();
     PSSpecifier *apps = [self specifierForID:RRRListKey];
     if (apps) [apps setName:settings.whitelist ? RRRWhitelistAppsTitle : RRRBlacklistAppsTitle];
+    PSSpecifier *audioApps = [self specifierForID:RRRAudioListKey];
+    if (audioApps) [audioApps setName:RRRAudioWhitelistEnabled()
+        ? RRRAudioWhitelistAppsTitle
+        : RRRAudioBlacklistAppsTitle];
 }
 
 - (UIImage *)symbolImageNamed:(NSString *)name {
@@ -85,12 +95,30 @@ static NSString *const RRRBlacklistAppsTitle = @"Kill Applications";
     if ([key isEqualToString:RRROtherAppsKey]) return @(settings.preserveOtherApps);
     if ([key isEqualToString:RRRWhitelistKey]) return @(settings.whitelist);
     if ([key isEqualToString:RRRLoggingKey]) return @(settings.loggingEnabled);
+    if ([key isEqualToString:RRRSimultaneousAudioKey]) return @(RRRSimultaneousAudioEnabled());
+    if ([key isEqualToString:RRRAudioWhitelistKey]) return @(RRRAudioWhitelistEnabled());
     return [specifier propertyForKey:@"default"];
 }
 
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
     RRRPreferencesSnapshot *settings = RRRPreferencesLoad();
     NSString *key = [specifier propertyForKey:@"key"];
+    if ([key isEqualToString:RRRSimultaneousAudioKey]) {
+        if ([value respondsToSelector:@selector(boolValue)] &&
+            RRRPreferencesSetSimultaneousAudioEnabled([value boolValue])) {
+            [self reloadSpecifier:specifier animated:YES];
+            [self updateAudioModeAvailability:YES];
+        }
+        return;
+    }
+    if ([key isEqualToString:RRRAudioWhitelistKey]) {
+        if ([value respondsToSelector:@selector(boolValue)] &&
+            RRRPreferencesSetAudioWhitelistEnabled([value boolValue])) {
+            [self updateModeLabels];
+            [self updateAudioModeAvailability:YES];
+        }
+        return;
+    }
     BOOL enabled = settings.enabled;
     BOOL nowPlaying = settings.preserveNowPlaying;
     BOOL otherApps = settings.preserveOtherApps;
@@ -112,6 +140,15 @@ static NSString *const RRRBlacklistAppsTitle = @"Kill Applications";
     BOOL enabled = RRRPreferencesLoad().preserveOtherApps;
     PSSpecifier *mode = [self specifierForID:RRRWhitelistKey];
     PSSpecifier *apps = [self specifierForID:RRRListKey];
+    if (mode) [mode setProperty:@(enabled) forKey:@"enabled"];
+    if (apps) [apps setProperty:@(enabled) forKey:@"enabled"];
+    if (reload && [self respondsToSelector:@selector(reloadSpecifiers)]) [self reloadSpecifiers];
+}
+
+- (void)updateAudioModeAvailability:(BOOL)reload {
+    BOOL enabled = RRRSimultaneousAudioEnabled();
+    PSSpecifier *mode = [self specifierForID:RRRAudioWhitelistKey];
+    PSSpecifier *apps = [self specifierForID:RRRAudioListKey];
     if (mode) [mode setProperty:@(enabled) forKey:@"enabled"];
     if (apps) [apps setProperty:@(enabled) forKey:@"enabled"];
     if (reload && [self respondsToSelector:@selector(reloadSpecifiers)]) [self reloadSpecifiers];
