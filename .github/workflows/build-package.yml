@@ -16,7 +16,10 @@ permissions:
 
 env:
   ROOTHIDE_THEOS_COMMIT: 88506b2c22e9e07dd4ed055f23c9e398a117a2c7
-  MIXED_LLVM_VERSION: 22.1.8
+  # Minimum host LLVM. The mixed toolchain needs a clang new enough for the
+  # versioned arm64e/PAC ABI; pinning an exact Homebrew build breaks whenever
+  # the formula rolls forward.
+  MIXED_LLVM_MIN_VERSION: '22.1'
 
 jobs:
   build:
@@ -65,13 +68,16 @@ jobs:
           brew install llvm
           llvm_bin="$(brew --prefix llvm)/bin"
           version="$($llvm_bin/clang --version | head -n 1)"
-          case "$version" in
-            *"$MIXED_LLVM_VERSION"*) ;;
-            *)
-              echo "expected host LLVM $MIXED_LLVM_VERSION, got: $version" >&2
-              exit 1
-              ;;
-          esac
+          got=$(printf '%s\n' "$version" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
+          python3 - "$got" "$MIXED_LLVM_MIN_VERSION" "$version" <<'PY'
+          import sys
+          got, want, raw = sys.argv[1], sys.argv[2], sys.argv[3]
+          def parts(v):
+              return tuple(int(x) for x in v.split('.'))
+          if not got or parts(got) < parts(want):
+              sys.exit(f"host LLVM {got or raw} is older than required {want}")
+          print(f"host LLVM {got} satisfies >= {want}")
+          PY
           printf 'MIXED_LLVM_BIN=%s\n' "$llvm_bin" >> "$GITHUB_ENV"
 
       - name: Install RootHide Theos

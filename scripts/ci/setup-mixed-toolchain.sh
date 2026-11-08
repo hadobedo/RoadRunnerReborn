@@ -34,15 +34,24 @@ test -n "$mixed_ld" && test -x "$mixed_ld" || {
     exit 1
 }
 
-if [[ -n "${MIXED_LLVM_VERSION:-}" ]]; then
+# MIXED_LLVM_MIN_VERSION is a floor, not a pin: the mixed toolchain needs a
+# clang new enough for the versioned arm64e/PAC ABI, and pinning an exact
+# Homebrew build breaks whenever the formula rolls forward.
+llvm_floor=${MIXED_LLVM_MIN_VERSION:-${MIXED_LLVM_VERSION:-}}
+if [[ -n "$llvm_floor" ]]; then
     version=$($clang_path --version | head -n 1)
-    case "$version" in
-        *"$MIXED_LLVM_VERSION"*) ;;
-        *)
-            echo "expected host LLVM $MIXED_LLVM_VERSION, got: $version" >&2
-            exit 1
-            ;;
-    esac
+    got=$(printf '%s\n' "$version" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
+    if [[ -z $got ]] || ! awk -v got="$got" -v want="$llvm_floor" 'BEGIN {
+            split(got, g, "."); split(want, w, ".");
+            for (i = 1; i <= 3; i++) {
+                if ((g[i] + 0) > (w[i] + 0)) exit 0;
+                if ((g[i] + 0) < (w[i] + 0)) exit 1;
+            }
+            exit 0;
+        }'; then
+        echo "host LLVM ${got:-$version} is older than required $llvm_floor" >&2
+        exit 1
+    fi
 fi
 
 printf 'MIXED_CLANG=%s\n' "$clang_path"
