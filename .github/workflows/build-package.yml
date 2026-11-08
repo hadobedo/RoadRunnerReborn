@@ -65,8 +65,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          brew install llvm
-          llvm_bin="$(brew --prefix llvm)/bin"
+          # Versioned formula: the unversioned llvm is 23.x, whose clang cannot
+          # build the Xcode iPhoneOS SDK module maps ("could not build module
+          # 'Darwin'"). llvm@22 tracks 22.1.8, the known-good compiler.
+          brew install llvm@22
+          llvm_bin="$(brew --prefix llvm@22)/bin"
           version="$($llvm_bin/clang --version | head -n 1)"
           got=$(printf '%s\n' "$version" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
           python3 - "$got" "$MIXED_LLVM_MIN_VERSION" "$version" <<'PY'

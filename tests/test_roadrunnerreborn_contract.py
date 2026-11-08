@@ -202,6 +202,10 @@ def main():
     # the Homebrew formula rolls forward.
     assert 'MIXED_LLVM_MIN_VERSION: ' in build_package
     assert 'MIXED_LLVM_VERSION:' not in build_package
+    # Versioned formula: unversioned llvm is 23.x and cannot build the Xcode
+    # iPhoneOS SDK module maps.
+    assert 'brew install llvm@22' in build_package
+    assert 'brew --prefix llvm@22' in build_package
     assert 'scripts/ci/setup-mixed-toolchain.sh' in build_package
     assert "Smoke-check shell and Python tooling" in build_package
     for workflow in (project / ".github/workflows/build.yml", project / ".github/workflows/publish.yml"):
