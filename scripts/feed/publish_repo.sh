@@ -21,6 +21,38 @@ cp "$ROOTHIDE_DEB" "$FEED_DIR/debs/"
 cp "$ROOTLESS_DEB" "$FEED_DIR/rootless/debs/"
 cp "$ROOTHIDE_DEB" "$FEED_DIR/roothide/debs/"
 
+# Keep only the newest build per package+architecture in every debs directory,
+# so superseded versions do not stay installable from the feed.
+prune_debs() {
+    local directory=$1
+    python3 - "$directory" <<'PRUNE'
+import glob
+import os
+import re
+import sys
+
+directory = sys.argv[1]
+keep = {}
+for path in glob.glob(os.path.join(directory, "*.deb")):
+    match = re.match(r"(.+?)_(.+?)_(.+)\.deb$", os.path.basename(path))
+    if not match:
+        continue
+    key = (match.group(1), match.group(3))
+    version = tuple(int(x) for x in re.findall(r"\d+", match.group(2)))
+    if key not in keep or version > keep[key][0]:
+        keep[key] = (version, path)
+
+for path in glob.glob(os.path.join(directory, "*.deb")):
+    if not any(path == kept for _, kept in keep.values()):
+        os.remove(path)
+        print(f"pruned {os.path.basename(path)}")
+PRUNE
+}
+
+prune_debs "$FEED_DIR/debs"
+prune_debs "$FEED_DIR/rootless/debs"
+prune_debs "$FEED_DIR/roothide/debs"
+
 render_depiction() {
     local output_dir=$1
     mkdir -p "$output_dir"
