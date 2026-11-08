@@ -198,7 +198,10 @@ def main():
     build_package = (project / ".github/workflows/build-package.yml").read_text()
     assert 'scheme: roothide\n            archs: "arm64 arm64e"' in build_package
     assert 'expected_arch: iphoneos-arm64e' in build_package
-    assert 'MIXED_LLVM_VERSION: 22.1.8' in build_package
+    # Host LLVM is a floor, not an exact pin: an exact version breaks whenever
+    # the Homebrew formula rolls forward.
+    assert 'MIXED_LLVM_MIN_VERSION: ' in build_package
+    assert 'MIXED_LLVM_VERSION:' not in build_package
     assert 'scripts/ci/setup-mixed-toolchain.sh' in build_package
     assert "Smoke-check shell and Python tooling" in build_package
     for workflow in (project / ".github/workflows/build.yml", project / ".github/workflows/publish.yml"):
