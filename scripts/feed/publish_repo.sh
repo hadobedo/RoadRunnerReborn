@@ -49,9 +49,14 @@ for path in glob.glob(os.path.join(directory, "*.deb")):
 PRUNE
 }
 
-prune_debs "$FEED_DIR/debs"
-prune_debs "$FEED_DIR/rootless/debs"
-prune_debs "$FEED_DIR/roothide/debs"
+# Prune only the dev feed. The stable feeds stay additive: CI's own publish
+# path scans every deb it finds, and dropping superseded versions would remove
+# the ability to downgrade to a previous release.
+if [ "$FEED_DIR" != "$repo_root" ]; then
+    prune_debs "$FEED_DIR/debs"
+    prune_debs "$FEED_DIR/rootless/debs"
+    prune_debs "$FEED_DIR/roothide/debs"
+fi
 
 render_depiction() {
     local output_dir=$1
