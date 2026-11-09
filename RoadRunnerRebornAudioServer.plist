@@ -1,1 +1,8 @@
-{ Filter = { Bundles = ( "com.apple.mediaserverd", "com.apple.audiomxd" ); Executables = ( "mediaserverd", "audiomxd" ); }; }
+{
+	Filter = {
+		Executables = (
+			mediaserverd,
+			audiomxd,
+		);
+	};
+}

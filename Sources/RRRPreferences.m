@@ -27,6 +27,51 @@ static id RRRCopyPreferenceValue(NSString *key) {
     ));
 }
 
+// The preference domain is shared by every process that reads these settings
+// (SpringBoard, runningboardd, mediaserverd, audiomxd, every app). cfprefsd
+// owns the plist, so *all* access must go through CFPreferences: writing the
+// file directly with -writeToFile: leaves cfprefsd's cache authoritative and
+// the next CFPreferencesSetAppValue flushes that stale cache over the file,
+// silently discarding the keys written directly.
+static NSArray<NSString *> *RRRPreferenceKeys(void) {
+    static NSArray<NSString *> *keys;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        keys = @[ RRRPreferencesEnabledKey,
+                  RRRPreferencesNowPlayingKey,
+                  RRRPreferencesOtherAppsKey,
+                  RRRPreferencesWhitelistKey,
+                  RRRPreferencesListedAppsKey,
+                  RRRPreferencesLoggingKey,
+                  RRRPreferencesSimultaneousAudioKey,
+                  RRRPreferencesAudioWhitelistKey,
+                  RRRPreferencesAudioListedAppsKey,
+                  RRRPreferencesUniverseKey ];
+    });
+    return keys;
+}
+
+static NSDictionary<NSString *, id> *RRRCopyAllPreferenceValues(void) {
+    CFStringRef domain = CFSTR("com.nicksworks.roadrunnerreborn.preferences");
+    CFPreferencesAppSynchronize(domain);
+    NSMutableDictionary *values = [NSMutableDictionary dictionary];
+    for (NSString *key in RRRPreferenceKeys()) {
+        id value = CFBridgingRelease(CFPreferencesCopyAppValue((__bridge CFStringRef)key, domain));
+        if (value) values[key] = value;
+    }
+    return values;
+}
+
+static BOOL RRRSetPreferenceValues(NSDictionary<NSString *, id> *values) {
+    CFStringRef domain = CFSTR("com.nicksworks.roadrunnerreborn.preferences");
+    for (NSString *key in values) {
+        CFPreferencesSetAppValue((__bridge CFStringRef)key,
+                                 (__bridge CFPropertyListRef)values[key],
+                                 domain);
+    }
+    return CFPreferencesAppSynchronize(domain);
+}
+
 BOOL RRRSimultaneousAudioEnabled(void) {
     id value = RRRCopyPreferenceValue(RRRPreferencesSimultaneousAudioKey);
     return [value isKindOfClass:NSNumber.class] ? [value boolValue] : NO;
@@ -128,7 +173,7 @@ static NSSet<NSString *> *RRRStoredAppUniverse(NSDictionary *dict) {
 }
 
 RRRPreferencesSnapshot *RRRPreferencesLoad(void) {
-    NSDictionary *dict = [NSDictionary dictionaryWithContentsOfFile:RRRPreferencesFilePath];
+    NSDictionary *dict = RRRCopyAllPreferenceValues();
     RRRPreferencesSnapshot *snapshot;
     if (![dict isKindOfClass:NSDictionary.class]) {
         snapshot = [[RRRPreferencesSnapshot alloc] initWithEnabled:YES preserveNowPlaying:YES preserveOtherApps:NO whitelist:YES loggingEnabled:NO listedApps:[NSSet set] appUniverse:[NSSet set]];
@@ -162,7 +207,7 @@ RRRPreferencesSnapshot *RRRPreferencesLoad(void) {
 BOOL RRRPreferencesWrite(BOOL enabled, BOOL preserveNowPlaying, BOOL preserveOtherApps, BOOL whitelist, BOOL loggingEnabled, NSArray<NSString *> *listedApps) {
     NSMutableSet *clean = [NSMutableSet set];
     for (id value in listedApps) if (RRRValidBundleID(value)) [clean addObject:value];
-    NSDictionary *current = [NSDictionary dictionaryWithContentsOfFile:RRRPreferencesFilePath];
+    NSDictionary *current = RRRCopyAllPreferenceValues();
     NSSet *freshUniverse = RRRVisibleAppBundleIDs();
     NSSet *appUniverse = freshUniverse.count > 0 ? freshUniverse : RRRStoredAppUniverse(current);
     id simultaneousAudioValue = current[RRRPreferencesSimultaneousAudioKey];
@@ -187,13 +232,13 @@ BOOL RRRPreferencesWrite(BOOL enabled, BOOL preserveNowPlaying, BOOL preserveOth
                             RRRPreferencesAudioListedAppsKey: audioListedApps,
                             RRRPreferencesListedAppsKey: clean.allObjects,
                             RRRPreferencesUniverseKey: appUniverse.allObjects };
-    if (![dict writeToFile:RRRPreferencesFilePath atomically:YES]) return NO;
+    if (!RRRSetPreferenceValues(dict)) return NO;
     notify_post(RRRPreferencesChangedNotification.UTF8String);
     return YES;
 }
 
 BOOL RRRPreferencesUpdateAppUniverse(void) {
-    NSDictionary *current = [NSDictionary dictionaryWithContentsOfFile:RRRPreferencesFilePath];
+    NSDictionary *current = RRRCopyAllPreferenceValues();
     NSSet *universe = RRRVisibleAppBundleIDs();
     // Never erase a known universe because enumeration failed in this process.
     if (universe.count == 0) return NO;
@@ -201,7 +246,7 @@ BOOL RRRPreferencesUpdateAppUniverse(void) {
     if ([existing isEqualToSet:universe]) return NO;
     NSMutableDictionary *updated = current ? [current mutableCopy] : [NSMutableDictionary dictionary];
     updated[RRRPreferencesUniverseKey] = universe.allObjects;
-    if (![updated writeToFile:RRRPreferencesFilePath atomically:YES]) return NO;
+    if (!RRRSetPreferenceValues(updated)) return NO;
     notify_post(RRRPreferencesChangedNotification.UTF8String);
     return YES;
 }

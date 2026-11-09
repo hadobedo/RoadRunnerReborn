@@ -1,1 +1,7 @@
-{ Filter = { Bundles = ( "com.apple.RunningBoard" ); Executables = ( "runningboardd" ); }; }
+{
+	Filter = {
+		Executables = (
+			runningboardd,
+		);
+	};
+}

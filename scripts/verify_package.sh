@@ -135,11 +135,16 @@ grep -F 'com.apple.springboard' "$sb_filter" >/dev/null
 ! grep -F 'runningboardd' "$sb_filter" >/dev/null
 grep -F 'runningboardd' "$daemon_filter" >/dev/null
 ! grep -F 'com.apple.springboard' "$daemon_filter" >/dev/null
-grep -F 'com.apple.UIKit' "$audio_filter" >/dev/null
-grep -F 'com.apple.audiomxd' "$audio_server_filter" >/dev/null
+# The app-side audio tweak must key off a class that apps actually load.
+# "Bundles = com.apple.UIKit" matches nothing: Bundles compares the process's
+# main bundle identifier, and no process has UIKit's bundle identifier.
+grep -F 'AVAudioSession' "$audio_filter" >/dev/null
+! grep -F 'com.apple.UIKit' "$audio_filter" >/dev/null
+# Daemons have no reliable bundle identifier, so match the executable only.
 grep -F 'audiomxd' "$audio_server_filter" >/dev/null
-grep -F 'com.apple.mediaserverd' "$audio_server_filter" >/dev/null
 grep -F 'mediaserverd' "$audio_server_filter" >/dev/null
+! grep -F 'Bundles' "$audio_server_filter" >/dev/null
+! grep -F 'Bundles' "$daemon_filter" >/dev/null
 
 postinst="$tmp/control/postinst"
 postrm="$tmp/control/postrm"

@@ -12,20 +12,51 @@
 #import <sys/types.h>
 #import <unistd.h>
 
-NSString *const RRRSurvivorsFilePath = @"/var/mobile/Library/Preferences/com.nicksworks.roadrunnerreborn.survivors.plist";
+NSString *const RRRSurvivorsFilePath = @"/var/mobile/Library/RoadRunnerReborn/survivors.plist";
 NSString *const RRRSpringBoardReadyNotification = @"com.nicksworks.roadrunnerreborn.springboard-ready";
 NSString *const RRRSurvivorsReadyNotification = @"com.nicksworks.roadrunnerreborn.survivors-ready";
 NSString *const RRRSurvivorsConsumedNotification = @"com.nicksworks.roadrunnerreborn.survivors-consumed";
 
 // The record file is shared by runningboardd and SpringBoard, but must never
 // live in globally writable /tmp. The rootless-aware and unprefixed paths are
-// both used because each injected process can resolve the mobile preference
-// directory through a different root mapping.
+// both used because each injected process can resolve the mobile directory
+// through a different root mapping.
+//
+// This deliberately does NOT use /var/mobile/Library/Preferences: plenty of
+// jailbreaks ship that directory as 0777 so tweaks can write preferences, and
+// RRRParentDirectoriesSecure() correctly refuses a world-writable parent. That
+// silently disabled the whole survivor transport (no record file, so
+// runningboardd never learned the now-playing PID and nothing was preserved).
+// A dedicated 0755 directory under Library() has secure parents on every setup.
+static NSString *const RRRSurvivorDirectory = @"/var/mobile/Library/RoadRunnerReborn";
+
 static NSArray<NSString *> *RRRSurvivorPaths(void) {
     return @[
-        ROOT_PATH_NS(@"/var/mobile/Library/Preferences/com.nicksworks.roadrunnerreborn.survivors.plist"),
-        @"/var/mobile/Library/Preferences/com.nicksworks.roadrunnerreborn.survivors.plist",
+        ROOT_PATH_NS(@"/var/mobile/Library/RoadRunnerReborn/survivors.plist"),
+        @"/var/mobile/Library/RoadRunnerReborn/survivors.plist",
     ];
+}
+
+static uid_t RRRMobileUID(void);
+static gid_t RRRMobileGID(void);
+
+// Create the transport directory (0755, mobile-owned when we may) so the
+// security checks below have somewhere legitimate to write.
+static void RRREnsureSurvivorDirectory(void) {
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        for (NSString *directory in @[ ROOT_PATH_NS(RRRSurvivorDirectory), RRRSurvivorDirectory ]) {
+            struct stat info;
+            if (lstat(directory.fileSystemRepresentation, &info) == 0) {
+                if (!S_ISDIR(info.st_mode)) continue;
+                if ((info.st_mode & 0777) != 0755) chmod(directory.fileSystemRepresentation, 0755);
+                continue;
+            }
+            if (mkdir(directory.fileSystemRepresentation, 0755) != 0 && errno != EEXIST) continue;
+            chmod(directory.fileSystemRepresentation, 0755);
+            if (geteuid() == 0) chown(directory.fileSystemRepresentation, RRRMobileUID(), RRRMobileGID());
+        }
+    });
 }
 
 static struct passwd *RRRMobileAccount(void) {
@@ -70,6 +101,7 @@ static BOOL RRRPathIsSecure(NSString *path, BOOL requireExisting) {
 }
 
 static int RRRAcquireTransportLock(void) {
+    RRREnsureSurvivorDirectory();
     // Both payload candidates must coordinate through the same lock when the
     // rootless-prefixed path is unavailable (or vice versa). Try candidates
     // in the same order in both hosts and use the first secure lock location.

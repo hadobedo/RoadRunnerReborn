@@ -145,9 +145,15 @@ def main():
     audio_server_filter = (project / "RoadRunnerRebornAudioServer.plist").read_text()
     assert "com.apple.springboard" in sb_filter and "runningboardd" not in sb_filter
     assert "runningboardd" in daemon_filter and "com.apple.springboard" not in daemon_filter
-    assert "com.apple.UIKit" in audio_filter
-    assert "com.apple.audiomxd" in audio_server_filter and "audiomxd" in audio_server_filter
-    assert "com.apple.mediaserverd" in audio_server_filter and "mediaserverd" in audio_server_filter
+    # The app-side audio tweak must key off a class apps actually load.
+    # "Bundles = com.apple.UIKit" matches nothing: Bundles compares the process's
+    # main bundle identifier and no process has UIKit's bundle identifier.
+    assert "AVAudioSession" in audio_filter
+    assert "com.apple.UIKit" not in audio_filter
+    # Daemons have no reliable bundle identifier; match the executable only.
+    assert "audiomxd" in audio_server_filter and "mediaserverd" in audio_server_filter
+    assert "Bundles" not in audio_server_filter
+    assert "Bundles" not in daemon_filter
     assert "RRRPreferencesSimultaneousAudioKey" in preferences
     assert "RRRPreferencesAudioWhitelistKey" in preferences
     assert "RRRPreferencesAudioListedAppsKey" in preferences
